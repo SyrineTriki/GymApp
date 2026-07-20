@@ -1,0 +1,257 @@
+<div class="register-shell">
+
+  <!-- ═══════════════════════════════════════════════════
+       STEP 1 — Role selection
+  ════════════════════════════════════════════════════ -->
+  <div *ngIf="step === 'role'" class="register-card animate-in">
+    <div class="brand">
+      <span class="brand-icon">⚡</span>
+      <span class="brand-name">GymApp</span>
+    </div>
+
+    <h1 class="card-title">Join the community</h1>
+    <p class="card-sub">Choose how you'll use GymApp to get started.</p>
+
+    <div class="role-grid">
+      <button
+        class="role-card"
+        [class.role-card--active]="selectedRole === 'athlete'"
+        (click)="selectRole('athlete')"
+        type="button"
+      >
+        <span class="role-emoji">🏃</span>
+        <strong class="role-label">Athlete</strong>
+        <p class="role-desc">Track your workouts, connect with coaches, and crush your goals.</p>
+        <span class="role-check" *ngIf="selectedRole === 'athlete'">✓</span>
+      </button>
+
+      <button
+        class="role-card"
+        [class.role-card--active]="selectedRole === 'coach'"
+        (click)="selectRole('coach')"
+        type="button"
+      >
+        <span class="role-emoji">🏋️</span>
+        <strong class="role-label">Coach</strong>
+        <p class="role-desc">Build your client base, create programs, and grow your training business.</p>
+        <span class="role-check" *ngIf="selectedRole === 'coach'">✓</span>
+      </button>
+    </div>
+
+    <button
+      class="btn btn--primary btn--full"
+      [disabled]="!selectedRole"
+      (click)="confirmRole()"
+      type="button"
+    >
+      Continue as {{ selectedRole === 'athlete' ? 'Athlete' : selectedRole === 'coach' ? 'Coach' : '…' }}
+    </button>
+
+    <p class="switch-link">
+      Already have an account? <a routerLink="/login">Log in</a>
+    </p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       STEP 2 — Details form
+  ════════════════════════════════════════════════════ -->
+  <div *ngIf="step === 'details'" class="register-card animate-in">
+    <button class="back-btn" (click)="goBack()" type="button">
+      ← Back
+    </button>
+
+    <div class="brand">
+      <span class="brand-icon">⚡</span>
+      <span class="brand-name">GymApp</span>
+    </div>
+
+    <h1 class="card-title">
+      {{ selectedRole === 'athlete' ? 'Athlete' : 'Coach' }} registration
+    </h1>
+    <p class="card-sub">All fields marked * are required.</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="reg-form">
+
+      <!-- Name -->
+      <div class="field" [class.field--error]="f['name'].touched && f['name'].invalid">
+        <label class="field-label" for="name">Full name *</label>
+        <input
+          id="name"
+          type="text"
+          class="field-input"
+          formControlName="name"
+          placeholder="Jane Doe"
+          autocomplete="name"
+        />
+        <span class="field-hint error" *ngIf="f['name'].touched && f['name'].errors?.['required']">Name is required.</span>
+        <span class="field-hint error" *ngIf="f['name'].touched && f['name'].errors?.['minlength']">At least 2 characters.</span>
+      </div>
+
+      <!-- Email -->
+      <div class="field" [class.field--error]="f['email'].touched && f['email'].invalid">
+        <label class="field-label" for="email">Email address *</label>
+        <input
+          id="email"
+          type="email"
+          class="field-input"
+          formControlName="email"
+          placeholder="jane@example.com"
+          autocomplete="email"
+        />
+        <span class="field-hint error" *ngIf="f['email'].touched && f['email'].errors?.['required']">Email is required.</span>
+        <span class="field-hint error" *ngIf="f['email'].touched && f['email'].errors?.['email']">Enter a valid email address.</span>
+      </div>
+
+      <!-- Password -->
+      <div class="field" [class.field--error]="f['password'].touched && f['password'].invalid">
+        <label class="field-label" for="password">Password *</label>
+        <div class="input-group">
+          <input
+            id="password"
+            [type]="showPassword ? 'text' : 'password'"
+            class="field-input"
+            formControlName="password"
+            placeholder="Min. 8 chars, 1 uppercase, 1 number"
+            autocomplete="new-password"
+          />
+          <button
+            class="toggle-pw"
+            type="button"
+            (click)="showPassword = !showPassword"
+            [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
+          >
+            {{ showPassword ? '🙈' : '👁️' }}
+          </button>
+        </div>
+        <span class="field-hint error" *ngIf="f['password'].touched && passwordFieldErrors()">
+          {{ passwordFieldErrors() }}
+        </span>
+        <div class="pw-strength" *ngIf="f['password'].value">
+          <span
+            class="pw-bar"
+            [class.bar--weak]="f['password'].value.length < 8"
+            [class.bar--ok]="f['password'].value.length >= 8 && f['password'].invalid"
+            [class.bar--strong]="f['password'].valid"
+          ></span>
+          <span class="pw-label">
+            {{ f['password'].valid ? 'Strong' : f['password'].value.length >= 8 ? 'Almost there' : 'Too short' }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Date of birth -->
+      <div class="field" [class.field--error]="f['date_of_birth'].touched && f['date_of_birth'].invalid">
+        <label class="field-label" for="dob">Date of birth *</label>
+        <input
+          id="dob"
+          type="date"
+          class="field-input"
+          formControlName="date_of_birth"
+          [max]="maxDob()"
+        />
+        <span class="field-hint error" *ngIf="f['date_of_birth'].touched && f['date_of_birth'].errors?.['required']">Date of birth is required.</span>
+        <span class="field-hint error" *ngIf="f['date_of_birth'].touched && f['date_of_birth'].errors?.['tooYoung']">You must be at least 14 years old.</span>
+      </div>
+
+      <!-- ── Coach-only fields ─────────────────────────────── -->
+      <ng-container *ngIf="selectedRole === 'coach'">
+        <div class="section-divider">Coach details <span class="optional-tag">(optional)</span></div>
+
+        <!-- Years of experience -->
+        <div class="field" [class.field--error]="f['years_of_experience']?.touched && f['years_of_experience']?.invalid">
+          <label class="field-label" for="exp">Years of experience</label>
+          <input
+            id="exp"
+            type="number"
+            class="field-input"
+            formControlName="years_of_experience"
+            placeholder="e.g. 5"
+            min="0"
+            max="60"
+          />
+          <span class="field-hint error" *ngIf="f['years_of_experience']?.touched && f['years_of_experience']?.errors?.['min']">Must be 0 or more.</span>
+        </div>
+
+        <!-- Bio -->
+        <div class="field">
+          <label class="field-label" for="bio">Bio</label>
+          <textarea
+            id="bio"
+            class="field-input field-textarea"
+            formControlName="bio"
+            placeholder="Tell athletes about your coaching style, specialties, and achievements…"
+            rows="4"
+          ></textarea>
+          <span class="field-hint">
+            {{ (f['bio']?.value?.length || 0) }}/500
+          </span>
+        </div>
+
+        <!-- Certification upload -->
+        <div class="field">
+          <label class="field-label">Certification document</label>
+          <div class="file-drop" [class.file-drop--error]="certError">
+            <ng-container *ngIf="!certFile; else filePreview">
+              <label class="file-label" for="cert-upload">
+                <span class="file-icon">📄</span>
+                <span class="file-text">Click to upload or drag & drop</span>
+                <span class="file-formats">PDF, JPEG, PNG — max 5 MB</span>
+                <input
+                  id="cert-upload"
+                  type="file"
+                  class="file-hidden"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  (change)="onFileChange($event)"
+                />
+              </label>
+            </ng-container>
+            <ng-template #filePreview>
+              <div class="file-preview">
+                <span class="file-icon">✅</span>
+                <span class="file-name">{{ certFile!.name }}</span>
+                <button class="file-remove" type="button" (click)="removeCert()">✕</button>
+              </div>
+            </ng-template>
+          </div>
+          <span class="field-hint error" *ngIf="certError">{{ certError }}</span>
+        </div>
+      </ng-container>
+      <!-- ── end coach fields ────────────────────────────── -->
+
+      <!-- Server error -->
+      <div class="alert alert--error" *ngIf="errorMessage" role="alert">
+        ⚠️ {{ errorMessage }}
+      </div>
+
+      <button
+        type="submit"
+        class="btn btn--primary btn--full"
+        [disabled]="loading"
+      >
+        <span *ngIf="!loading">Create account</span>
+        <span *ngIf="loading" class="spinner" aria-label="Loading"></span>
+      </button>
+
+      <p class="switch-link">
+        Already have an account? <a routerLink="/login">Log in</a>
+      </p>
+    </form>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       STEP 3 — Success
+  ════════════════════════════════════════════════════ -->
+  <div *ngIf="step === 'success'" class="register-card animate-in success-card">
+    <div class="success-icon">📬</div>
+    <h1 class="card-title">Check your inbox!</h1>
+    <p class="card-sub">
+      We've sent a verification link to your email address.<br />
+      Click it to activate your account. The link expires in <strong>1 hour</strong>.
+    </p>
+    <button class="btn btn--primary btn--full" (click)="goToLogin()" type="button">
+      Go to login
+    </button>
+    <p class="resend-hint">Didn't receive it? Check your spam folder.</p>
+  </div>
+
+</div>

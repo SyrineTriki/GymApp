@@ -1,0 +1,135 @@
+<div class="shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <span>⚡</span>
+      <span>GymApp</span>
+      <span class="super-badge">Super Admin</span>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="user-avatar gold">{{ name[0] | uppercase }}</div>
+      <div>
+        <div class="user-name">{{ name }}</div>
+        <div class="user-role">Super Admin</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button [class.active]="activeTab === 'overview'" (click)="setTab('overview')">📊 Overview</button>
+      <button [class.active]="activeTab === 'admins'"   (click)="setTab('admins')">👑 Manage Admins</button>
+      <button (click)="goToAdmin()">🛡️ Admin Dashboard</button>
+    </nav>
+
+    <button class="logout-btn" (click)="logout()">← Log out</button>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="alert alert-success" *ngIf="successMsg">✅ {{ successMsg }}</div>
+    <div class="alert alert-error"   *ngIf="error">⚠️ {{ error }}</div>
+
+    <!-- ── Overview ───────────────────────────────────────────── -->
+    <div *ngIf="activeTab === 'overview'">
+      <h1 class="page-title">System overview</h1>
+      <div class="stats-grid" *ngIf="stats">
+        <div class="stat-card">
+          <div class="stat-icon">👑</div>
+          <div class="stat-value">{{ stats.total_admins ?? 0 }}</div>
+          <div class="stat-label">Admins</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🏋️</div>
+          <div class="stat-value">{{ stats.total_coaches }}</div>
+          <div class="stat-label">Coaches</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🏃</div>
+          <div class="stat-value">{{ stats.total_athletes }}</div>
+          <div class="stat-label">Athletes</div>
+        </div>
+        <div class="stat-card stat-warning">
+          <div class="stat-icon">⏳</div>
+          <div class="stat-value">{{ stats.pending_coaches }}</div>
+          <div class="stat-label">Pending Coaches</div>
+        </div>
+        <div class="stat-card stat-success">
+          <div class="stat-icon">✅</div>
+          <div class="stat-value">{{ stats.approved_coaches }}</div>
+          <div class="stat-label">Approved Coaches</div>
+        </div>
+        <div class="stat-card stat-error">
+          <div class="stat-icon">❌</div>
+          <div class="stat-value">{{ stats.rejected_coaches }}</div>
+          <div class="stat-label">Rejected Coaches</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Manage Admins ───────────────────────────────────────── -->
+    <div *ngIf="activeTab === 'admins'">
+      <div class="page-header">
+        <h1 class="page-title">Manage admins</h1>
+        <button class="btn btn-primary" (click)="showCreateForm = !showCreateForm">
+          {{ showCreateForm ? '✕ Cancel' : '+ New admin' }}
+        </button>
+      </div>
+
+      <!-- Create admin form -->
+      <div class="create-form-card" *ngIf="showCreateForm">
+        <h2>Create admin account</h2>
+        <form [formGroup]="createForm" (ngSubmit)="createAdmin()">
+          <div class="form-grid">
+            <div class="field">
+              <label>Full name</label>
+              <input type="text" formControlName="name" placeholder="Jane Doe" />
+              <span class="field-error" *ngIf="f['name'].touched && f['name'].errors">Name is required.</span>
+            </div>
+            <div class="field">
+              <label>Email address</label>
+              <input type="email" formControlName="email" placeholder="jane@gymapp.com" />
+              <span class="field-error" *ngIf="f['email'].touched && f['email'].errors">Valid email required.</span>
+            </div>
+            <div class="field">
+              <label>Password</label>
+              <input type="password" formControlName="password" placeholder="Min. 8 characters" />
+              <span class="field-error" *ngIf="f['password'].touched && f['password'].errors">Min. 8 characters.</span>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary" [disabled]="createLoading">
+            {{ createLoading ? 'Creating…' : 'Create admin' }}
+          </button>
+        </form>
+      </div>
+
+      <!-- Admins list -->
+      <div class="loading-wrap" *ngIf="loading"><div class="spinner"></div></div>
+      <div class="empty-state" *ngIf="!loading && admins.length === 0">
+        <span>👑</span><p>No admins yet. Create one above.</p>
+      </div>
+
+      <table class="data-table" *ngIf="!loading && admins.length > 0">
+        <thead>
+          <tr><th>Name</th><th>Email</th><th>Created</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let admin of admins">
+            <td>
+              <div class="admin-name-cell">
+                <div class="mini-avatar">{{ admin.name[0] }}</div>
+                <strong>{{ admin.name }}</strong>
+              </div>
+            </td>
+            <td>{{ admin.email }}</td>
+            <td>{{ admin.created_at | date:'mediumDate' }}</td>
+            <td>
+              <button class="btn btn-sm btn-danger" (click)="deleteAdmin(admin.id, admin.name)">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+</div>

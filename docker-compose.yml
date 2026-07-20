@@ -1,0 +1,70 @@
+services:
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: gymapp_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gymapp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gymapp_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-gymapp}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"          # expose locally for DB tools (pgAdmin, DBeaver)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gymapp} -d ${POSTGRES_DB:-gymapp}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── FastAPI backend ────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gymapp_backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-gymapp}:${POSTGRES_PASSWORD:-gymapp_secret}@db:5432/${POSTGRES_DB:-gymapp}
+    volumes:
+      - cert_uploads:/app/uploads/certifications   # persisted cert files
+      - ./backend:/app                             # hot-reload in dev
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ── Angular frontend ───────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend-web
+      dockerfile: Dockerfile
+    container_name: gymapp_frontend
+    restart: unless-stopped
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
+
+  # ── Nginx reverse proxy (optional, useful in prod) ─────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: gymapp_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    profiles:
+      - prod      # only started with: docker compose --profile prod up
+
+volumes:
+  postgres_data:
+  cert_uploads:

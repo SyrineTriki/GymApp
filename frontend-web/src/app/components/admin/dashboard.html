@@ -1,0 +1,196 @@
+<div class="shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <span>⚡</span>
+      <span>GymApp</span>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="user-avatar">{{ name[0] | uppercase }}</div>
+      <div>
+        <div class="user-name">{{ name }}</div>
+        <div class="user-role">{{ role === 'super_admin' ? 'Super Admin' : 'Admin' }}</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button [class.active]="activeTab === 'overview'"  (click)="setTab('overview')">📊 Overview</button>
+      <button [class.active]="activeTab === 'pending'"   (click)="setTab('pending')">
+        ⏳ Pending Coaches
+        <span class="badge" *ngIf="stats?.pending_coaches">{{ stats?.pending_coaches }}</span>
+      </button>
+      <button [class.active]="activeTab === 'coaches'"   (click)="setTab('coaches')">🏋️ All Coaches</button>
+      <button [class.active]="activeTab === 'athletes'"  (click)="setTab('athletes')">🏃 Athletes</button>
+      <button *ngIf="role === 'super_admin'" (click)="goToSuperAdmin()">👑 Super Admin</button>
+    </nav>
+
+    <button class="logout-btn" (click)="logout()">← Log out</button>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <!-- Alerts -->
+    <div class="alert alert-success" *ngIf="successMsg">✅ {{ successMsg }}</div>
+    <div class="alert alert-error"   *ngIf="error">⚠️ {{ error }}</div>
+
+    <!-- ── Overview tab ───────────────────────────────────────── -->
+    <div *ngIf="activeTab === 'overview'">
+      <h1 class="page-title">Dashboard overview</h1>
+      <div class="stats-grid" *ngIf="stats">
+        <div class="stat-card">
+          <div class="stat-icon">🏃</div>
+          <div class="stat-value">{{ stats.total_athletes }}</div>
+          <div class="stat-label">Total Athletes</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🏋️</div>
+          <div class="stat-value">{{ stats.total_coaches }}</div>
+          <div class="stat-label">Total Coaches</div>
+        </div>
+        <div class="stat-card stat-warning">
+          <div class="stat-icon">⏳</div>
+          <div class="stat-value">{{ stats.pending_coaches }}</div>
+          <div class="stat-label">Pending Approval</div>
+        </div>
+        <div class="stat-card stat-success">
+          <div class="stat-icon">✅</div>
+          <div class="stat-value">{{ stats.approved_coaches }}</div>
+          <div class="stat-label">Approved Coaches</div>
+        </div>
+        <div class="stat-card stat-error">
+          <div class="stat-icon">❌</div>
+          <div class="stat-value">{{ stats.rejected_coaches }}</div>
+          <div class="stat-label">Rejected Coaches</div>
+        </div>
+        <div class="stat-card" *ngIf="role === 'super_admin'">
+          <div class="stat-icon">👑</div>
+          <div class="stat-value">{{ stats.total_admins }}</div>
+          <div class="stat-label">Admins</div>
+        </div>
+      </div>
+
+      <div class="quick-action" *ngIf="stats && stats.pending_coaches > 0">
+        <p>You have <strong>{{ stats.pending_coaches }}</strong> coach(es) waiting for approval.</p>
+        <button class="btn btn-primary" (click)="setTab('pending')">Review now →</button>
+      </div>
+    </div>
+
+    <!-- ── Pending coaches tab ─────────────────────────────────── -->
+    <div *ngIf="activeTab === 'pending'">
+      <h1 class="page-title">Pending coach approvals</h1>
+      <div class="loading-wrap" *ngIf="loading"><div class="spinner"></div></div>
+
+      <div class="empty-state" *ngIf="!loading && coaches.length === 0">
+        <span>🎉</span>
+        <p>No pending approvals — you're all caught up!</p>
+      </div>
+
+      <div class="coach-cards" *ngIf="!loading">
+        <div class="coach-card" *ngFor="let coach of coaches">
+          <div class="coach-header">
+            <div class="coach-avatar">{{ coach.name[0] }}</div>
+            <div>
+              <div class="coach-name">{{ coach.name }}</div>
+              <div class="coach-email">{{ coach.email }}</div>
+            </div>
+            <span class="badge badge-warning">Pending</span>
+          </div>
+
+          <div class="coach-meta">
+            <span *ngIf="coach.years_of_experience">📅 {{ coach.years_of_experience }} yrs experience</span>
+            <span *ngIf="!coach.years_of_experience">📅 Experience not specified</span>
+            <span>📧 {{ coach.is_verified ? 'Email verified' : 'Email not verified' }}</span>
+            <span>📅 Joined {{ coach.created_at | date:'mediumDate' }}</span>
+          </div>
+
+          <p class="coach-bio" *ngIf="coach.bio">{{ coach.bio }}</p>
+          <p class="coach-bio muted" *ngIf="!coach.bio">No bio provided.</p>
+
+          <div class="coach-cert" *ngIf="coach.certification_filename">
+            <a [href]="certUrl(coach.certification_filename)" target="_blank" class="cert-link">
+              📄 View certification
+            </a>
+          </div>
+          <p class="coach-bio muted" *ngIf="!coach.certification_filename">No certification uploaded.</p>
+
+          <div class="coach-actions">
+            <button class="btn btn-success" (click)="approve(coach)"
+              [disabled]="actionLoading === coach.id">
+              {{ actionLoading === coach.id ? '...' : '✓ Approve' }}
+            </button>
+            <button class="btn btn-danger" (click)="openRejectModal(coach)"
+              [disabled]="actionLoading === coach.id">
+              ✕ Reject
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── All coaches tab ─────────────────────────────────────── -->
+    <div *ngIf="activeTab === 'coaches'">
+      <h1 class="page-title">All coaches</h1>
+      <div class="loading-wrap" *ngIf="loading"><div class="spinner"></div></div>
+      <div class="empty-state" *ngIf="!loading && coaches.length === 0"><span>🏋️</span><p>No coaches yet.</p></div>
+
+      <table class="data-table" *ngIf="!loading && coaches.length > 0">
+        <thead>
+          <tr>
+            <th>Name</th><th>Email</th><th>Experience</th><th>Status</th><th>Joined</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let coach of coaches">
+            <td><strong>{{ coach.name }}</strong></td>
+            <td>{{ coach.email }}</td>
+            <td>{{ coach.years_of_experience ?? '—' }} yrs</td>
+            <td><span class="badge" [class]="statusClass(coach.status)">{{ coach.status }}</span></td>
+            <td>{{ coach.created_at | date:'mediumDate' }}</td>
+            <td>
+              <button class="btn btn-sm btn-danger" (click)="deleteUser(coach.id, coach.name)">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Athletes tab ────────────────────────────────────────── -->
+    <div *ngIf="activeTab === 'athletes'">
+      <h1 class="page-title">Athletes</h1>
+      <div class="loading-wrap" *ngIf="loading"><div class="spinner"></div></div>
+      <div class="empty-state" *ngIf="!loading && athletes.length === 0"><span>🏃</span><p>No athletes yet.</p></div>
+
+      <table class="data-table" *ngIf="!loading && athletes.length > 0">
+        <thead>
+          <tr><th>Name</th><th>Email</th><th>Verified</th><th>Joined</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let a of athletes">
+            <td><strong>{{ a.name }}</strong></td>
+            <td>{{ a.email }}</td>
+            <td>{{ a.is_verified ? '✅' : '❌' }}</td>
+            <td>{{ a.created_at | date:'mediumDate' }}</td>
+            <td><button class="btn btn-sm btn-danger" (click)="deleteUser(a.id, a.name)">Delete</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+</div>
+
+<!-- Reject modal -->
+<div class="modal-backdrop" *ngIf="rejectModal" (click)="rejectModal = null">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <h2>Reject {{ rejectModal.coach.name }}</h2>
+    <p>Please provide a reason. This will be sent to the coach by email.</p>
+    <textarea [(ngModel)]="rejectModal.reason" placeholder="Reason for rejection…" rows="4"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-outline" (click)="rejectModal = null">Cancel</button>
+      <button class="btn btn-danger" (click)="confirmReject()" [disabled]="!rejectModal.reason.trim()">Confirm rejection</button>
+    </div>
+  </div>
+</div>
