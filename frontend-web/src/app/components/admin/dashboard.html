@@ -1,4 +1,5 @@
 <div class="shell">
+  <app-ambient-background></app-ambient-background>
 
   <!-- Sidebar -->
   <aside class="sidebar">
@@ -40,34 +41,34 @@
     <div *ngIf="activeTab === 'overview'">
       <h1 class="page-title">Dashboard overview</h1>
       <div class="stats-grid" *ngIf="stats">
-        <div class="stat-card">
+        <div class="stat-card" appTilt3d>
           <div class="stat-icon">🏃</div>
-          <div class="stat-value">{{ stats.total_athletes }}</div>
+          <div class="stat-value" [appCountUp]="stats.total_athletes"></div>
           <div class="stat-label">Total Athletes</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" appTilt3d>
           <div class="stat-icon">🏋️</div>
-          <div class="stat-value">{{ stats.total_coaches }}</div>
+          <div class="stat-value" [appCountUp]="stats.total_coaches"></div>
           <div class="stat-label">Total Coaches</div>
         </div>
-        <div class="stat-card stat-warning">
+        <div class="stat-card stat-warning" appTilt3d>
           <div class="stat-icon">⏳</div>
-          <div class="stat-value">{{ stats.pending_coaches }}</div>
+          <div class="stat-value" [appCountUp]="stats.pending_coaches"></div>
           <div class="stat-label">Pending Approval</div>
         </div>
-        <div class="stat-card stat-success">
+        <div class="stat-card stat-success" appTilt3d>
           <div class="stat-icon">✅</div>
-          <div class="stat-value">{{ stats.approved_coaches }}</div>
+          <div class="stat-value" [appCountUp]="stats.approved_coaches"></div>
           <div class="stat-label">Approved Coaches</div>
         </div>
-        <div class="stat-card stat-error">
+        <div class="stat-card stat-error" appTilt3d>
           <div class="stat-icon">❌</div>
-          <div class="stat-value">{{ stats.rejected_coaches }}</div>
+          <div class="stat-value" [appCountUp]="stats.rejected_coaches"></div>
           <div class="stat-label">Rejected Coaches</div>
         </div>
-        <div class="stat-card" *ngIf="role === 'super_admin'">
+        <div class="stat-card" *ngIf="role === 'super_admin'" appTilt3d>
           <div class="stat-icon">👑</div>
-          <div class="stat-value">{{ stats.total_admins }}</div>
+          <div class="stat-value" [appCountUp]="stats.total_admins ?? 0"></div>
           <div class="stat-label">Admins</div>
         </div>
       </div>
@@ -89,7 +90,7 @@
       </div>
 
       <div class="coach-cards" *ngIf="!loading">
-        <div class="coach-card" *ngFor="let coach of coaches">
+        <div class="coach-card" appTilt3d *ngFor="let coach of coaches">
           <div class="coach-header">
             <div class="coach-avatar">{{ coach.name[0] }}</div>
             <div>

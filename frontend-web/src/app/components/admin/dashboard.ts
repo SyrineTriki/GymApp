@@ -4,13 +4,16 @@ import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AdminService, Coach, Athlete, DashboardStats } from '../../services/admin.service';
 import { AuthService } from '../../services/auth.service';
+import { Tilt3dDirective } from '../../shared/tilt-3d.directive';
+import { CountUpDirective } from '../../shared/count-up.directive';
+import { AmbientBackgroundComponent } from '../../shared/ambient-background.component';
 
 type Tab = 'overview' | 'pending' | 'coaches' | 'athletes';
 
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [CommonModule, RouterModule, FormsModule, Tilt3dDirective, CountUpDirective, AmbientBackgroundComponent],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.css'],
 })

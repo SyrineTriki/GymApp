@@ -4,13 +4,16 @@ import { RouterModule, Router } from '@angular/router';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { AdminService, Admin, DashboardStats } from '../../services/admin.service';
 import { AuthService } from '../../services/auth.service';
+import { Tilt3dDirective } from '../../shared/tilt-3d.directive';
+import { CountUpDirective } from '../../shared/count-up.directive';
+import { AmbientBackgroundComponent } from '../../shared/ambient-background.component';
 
 type Tab = 'overview' | 'admins';
 
 @Component({
   selector: 'app-super-admin-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, RouterModule, FormsModule, ReactiveFormsModule, Tilt3dDirective, CountUpDirective, AmbientBackgroundComponent],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.css'],
 })

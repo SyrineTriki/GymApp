@@ -1,19 +1,35 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:      #0a0a0a;
-  --surface: #111111;
-  --border:  #222222;
-  --text:    #f0f0f0;
-  --muted:   #777;
-  --accent:  #ef4444;
+  /* Deep space dark theme, teal/violet accents (FitForge palette) */
+  --bg:        #14161f;
+  --surface:   #1a1d29;
+  --surface-2: #21253373;
+  --border:    #2b2f40;
+  --text:      #f4f6fb;
+  --muted:     #8c93a8;
+  --accent:    #4fd6c4;      /* teal */
+  --accent-2:  #9c7bf0;      /* violet */
+  --amber:     #f0b95c;
+  --success:   #4ade80;
+  --warning:   #facc15;
+  --danger:    #f87171;
+
+  --gradient-brand: linear-gradient(135deg, #4fd6c4, #6f9bd6);
+  --gradient-card:  linear-gradient(160deg, #232738f0, #1a1d29f0);
+  --glow-teal:      0 0 28px -6px rgba(79, 214, 196, 0.45);
+  --shadow-elevate: 0 20px 50px -20px rgba(0, 0, 0, 0.55), 0 6px 16px -6px rgba(0, 0, 0, 0.35);
 }
 
 html, body {
   height: 100%;
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(1000px 500px at 15% -10%, rgba(79, 214, 196, 0.08), transparent 60%),
+    radial-gradient(800px 450px at 100% 0%, rgba(156, 123, 240, 0.08), transparent 60%);
+  background-attachment: fixed;
   color: var(--text);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: "Space Grotesk", system-ui, -apple-system, sans-serif;
   font-size: 16px;
   line-height: 1.5;
 }

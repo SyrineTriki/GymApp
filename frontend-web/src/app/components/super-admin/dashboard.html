@@ -1,4 +1,5 @@
 <div class="shell">
+  <app-ambient-background></app-ambient-background>
 
   <!-- Sidebar -->
   <aside class="sidebar">
@@ -34,34 +35,34 @@
     <div *ngIf="activeTab === 'overview'">
       <h1 class="page-title">System overview</h1>
       <div class="stats-grid" *ngIf="stats">
-        <div class="stat-card">
+        <div class="stat-card" appTilt3d>
           <div class="stat-icon">👑</div>
-          <div class="stat-value">{{ stats.total_admins ?? 0 }}</div>
+          <div class="stat-value" [appCountUp]="stats.total_admins ?? 0"></div>
           <div class="stat-label">Admins</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" appTilt3d>
           <div class="stat-icon">🏋️</div>
-          <div class="stat-value">{{ stats.total_coaches }}</div>
+          <div class="stat-value" [appCountUp]="stats.total_coaches"></div>
           <div class="stat-label">Coaches</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" appTilt3d>
           <div class="stat-icon">🏃</div>
-          <div class="stat-value">{{ stats.total_athletes }}</div>
+          <div class="stat-value" [appCountUp]="stats.total_athletes"></div>
           <div class="stat-label">Athletes</div>
         </div>
-        <div class="stat-card stat-warning">
+        <div class="stat-card stat-warning" appTilt3d>
           <div class="stat-icon">⏳</div>
-          <div class="stat-value">{{ stats.pending_coaches }}</div>
+          <div class="stat-value" [appCountUp]="stats.pending_coaches"></div>
           <div class="stat-label">Pending Coaches</div>
         </div>
-        <div class="stat-card stat-success">
+        <div class="stat-card stat-success" appTilt3d>
           <div class="stat-icon">✅</div>
-          <div class="stat-value">{{ stats.approved_coaches }}</div>
+          <div class="stat-value" [appCountUp]="stats.approved_coaches"></div>
           <div class="stat-label">Approved Coaches</div>
         </div>
-        <div class="stat-card stat-error">
+        <div class="stat-card stat-error" appTilt3d>
           <div class="stat-icon">❌</div>
-          <div class="stat-value">{{ stats.rejected_coaches }}</div>
+          <div class="stat-value" [appCountUp]="stats.rejected_coaches"></div>
           <div class="stat-label">Rejected Coaches</div>
         </div>
       </div>
