@@ -1,4 +1,4 @@
-# ── Stage 1: Build Angular app ────────────────────────────────────────────────
+# ── Stage 1: Build Next.js app ────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -6,20 +6,22 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
+ARG NEXT_PUBLIC_API_URL=http://localhost:8000
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 COPY . .
-RUN npm run build -- --configuration production
+RUN npm run build
 
-# ── Stage 2: Serve with Nginx ─────────────────────────────────────────────────
-FROM nginx:1.25-alpine
+# ── Stage 2: Run with the Next.js standalone server ───────────────────────────
+FROM node:20-alpine AS runner
 
-# Remove default nginx static content
-RUN rm -rf /usr/share/nginx/html/*
+WORKDIR /app
+ENV NODE_ENV=production
 
-# Copy built Angular app
-COPY --from=builder /app/dist/frontend/browser /usr/share/nginx/html
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 
-# SPA routing: redirect all 404s back to index.html
-COPY nginx-spa.conf /etc/nginx/conf.d/default.conf
-
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+EXPOSE 3000
+ENV PORT=3000
+CMD ["node", "server.js"]

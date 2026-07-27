@@ -61,34 +61,38 @@ def upgrade() -> None:
         END $$;
     """)
 
-    # ── 3. foods table ────────────────────────────────────────────────────────
-    op.create_table(
-        "foods",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("name", sa.String(150), nullable=False),
-        sa.Column("category", postgresql.ENUM("protein", "carbs", "fats", "produce", "dairy", "supplement",
-                                               name="foodcategoryenum", create_type=False), nullable=False),
-        sa.Column("price", sa.Numeric(10, 2), nullable=False),
-        sa.Column("currency", sa.String(10), nullable=False, server_default="TND"),
-        sa.Column("unit", sa.String(30), nullable=False),
-        sa.Column("trend", postgresql.ENUM("up", "down", "flat", name="foodtrendenum", create_type=False),
-                  nullable=False, server_default="flat"),
-        sa.Column("created_by", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
-    )
-
-    # ── 4. Seed initial catalog ───────────────────────────────────────────────
-    conn = op.get_bind()
-    now = datetime.utcnow()
-    for name, category, price, unit in SEED_FOODS:
-        conn.execute(
-            sa.text("""
-                INSERT INTO foods (id, name, category, price, currency, unit, trend, created_at, updated_at)
-                VALUES (:id, :name, :category, :price, 'TND', :unit, 'flat', :now, :now)
-            """),
-            {"id": str(uuid.uuid4()), "name": name, "category": category, "price": price, "unit": unit, "now": now},
+    # ── 3. foods table (raw SQL + IF NOT EXISTS: create_all() on app startup may
+    #      already have created this table from the updated models.py before this
+    #      migration got a chance to run) ──────────────────────────────────────
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS foods (
+            id UUID NOT NULL PRIMARY KEY,
+            name VARCHAR(150) NOT NULL,
+            category foodcategoryenum NOT NULL,
+            price NUMERIC(10, 2) NOT NULL,
+            currency VARCHAR(10) NOT NULL DEFAULT 'TND',
+            unit VARCHAR(30) NOT NULL,
+            trend foodtrendenum NOT NULL DEFAULT 'flat',
+            created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+            created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+            updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL
         )
+    """)
+
+    # ── 4. Seed initial catalog (only if the table is currently empty, so this
+    #      is safe to run again after a partial/failed prior attempt) ──────────
+    conn = op.get_bind()
+    existing_count = conn.execute(sa.text("SELECT COUNT(*) FROM foods")).scalar()
+    if existing_count == 0:
+        now = datetime.utcnow()
+        for name, category, price, unit in SEED_FOODS:
+            conn.execute(
+                sa.text("""
+                    INSERT INTO foods (id, name, category, price, currency, unit, trend, created_at, updated_at)
+                    VALUES (:id, :name, :category, :price, 'TND', :unit, 'flat', :now, :now)
+                """),
+                {"id": str(uuid.uuid4()), "name": name, "category": category, "price": price, "unit": unit, "now": now},
+            )
 
 
 def downgrade() -> None:
