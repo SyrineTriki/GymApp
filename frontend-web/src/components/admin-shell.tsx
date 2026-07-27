@@ -14,9 +14,13 @@ export function AdminShell({ title, children }: { title: string; children: React
   const nav = isSuperAdmin
     ? [
         { to: "/admin", label: "Coach Admin" },
+        { to: "/admin/food", label: "Food Database" },
         { to: "/super-admin", label: "Super Admin" },
       ]
-    : [{ to: "/admin", label: "Dashboard" }];
+    : [
+        { to: "/admin", label: "Dashboard" },
+        { to: "/admin/food", label: "Food Database" },
+      ];
 
   return (
     <div className="relative min-h-screen">

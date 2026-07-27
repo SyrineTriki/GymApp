@@ -1,0 +1,367 @@
+diff --git a/backend/auth_utils.py b/backend/auth_utils.py
+index 4c506984..8e6aa98e 100644
+--- a/backend/auth_utils.py
++++ b/backend/auth_utils.py
+@@ -101,6 +101,29 @@ def _get_fastmail() -> FastMail:
+     return FastMail(config)
+ 
+ 
++def generate_temp_password() -> str:
++    return secrets.token_urlsafe(9)
++
++
++async def send_admin_created_athlete_email(email: str, name: str, code: str, temp_password: str) -> None:
++    html_body = f"""
++    <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px;background:#0d0d0d;color:#f0f0f0;border-radius:12px;">
++      <h2 style="color:#ef4444;">Welcome to GymApp, {name}! 💪</h2>
++      <p style="color:#888;">An account has been created for you. Verify your email with the code below, then log in with the temporary password provided.</p>
++      <div style="font-size:36px;font-weight:900;letter-spacing:12px;color:#ef4444;margin:24px 0;text-align:center;">{code}</div>
++      <p style="color:#888;">Temporary password: <strong style="color:#f0f0f0;">{temp_password}</strong></p>
++      <p style="font-size:12px;color:#555;">Please change your password after logging in.</p>
++    </div>
++    """
++    message = MessageSchema(
++        subject="Your GymApp account is ready",
++        recipients=[email],
++        body=html_body,
++        subtype=MessageType.html,
++    )
++    await _get_fastmail().send_message(message)
++
++
+ async def send_verification_email(email: str, name: str, code: str) -> None:
+     html_body = f"""
+     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px;background:#0d0d0d;color:#f0f0f0;border-radius:12px;">
+diff --git a/backend/models.py b/backend/models.py
+index 89e40a34..9ab63add 100644
+--- a/backend/models.py
++++ b/backend/models.py
+@@ -3,7 +3,7 @@ import uuid
+ from datetime import datetime, date
+ from sqlalchemy import (
+     Column, String, Boolean, DateTime, Date, Integer,
+-    Text, Enum as SAEnum, ForeignKey
++    Text, Enum as SAEnum, ForeignKey, Numeric
+ )
+ from sqlalchemy.dialects.postgresql import UUID
+ from sqlalchemy.orm import relationship
+@@ -23,6 +23,21 @@ class CoachStatusEnum(str, enum.Enum):
+     rejected = "rejected"
+ 
+ 
++class FoodCategoryEnum(str, enum.Enum):
++    protein    = "protein"
++    carbs      = "carbs"
++    fats       = "fats"
++    produce    = "produce"
++    dairy      = "dairy"
++    supplement = "supplement"
++
++
++class FoodTrendEnum(str, enum.Enum):
++    up   = "up"
++    down = "down"
++    flat = "flat"
++
++
+ class User(Base):
+     __tablename__ = "users"
+ 
+@@ -40,6 +55,10 @@ class User(Base):
+     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+ 
++    # Set when an admin creates the account on the athlete's behalf (vs. self-registration).
++    # Admins can only see/manage athletes where created_by == their own id.
++    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
++
+     athlete_profile = relationship("AthleteProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
+     coach_profile   = relationship("CoachProfile",   back_populates="user", uselist=False, cascade="all, delete-orphan")
+ 
+@@ -66,3 +85,19 @@ class CoachProfile(Base):
+     rejection_reason       = Column(Text,         nullable=True)
+ 
+     user = relationship("User", back_populates="coach_profile")
++
++
++class Food(Base):
++    __tablename__ = "foods"
++
++    id         = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
++    name       = Column(String(150), nullable=False)
++    category   = Column(SAEnum(FoodCategoryEnum), nullable=False)
++    price      = Column(Numeric(10, 2), nullable=False)
++    currency   = Column(String(10), nullable=False, default="TND")
++    unit       = Column(String(30), nullable=False)    # e.g. "kg", "500 g", "L", "12"
++    trend      = Column(SAEnum(FoodTrendEnum), nullable=False, default=FoodTrendEnum.flat)
++
++    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
++    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
++    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+diff --git a/backend/routes/admin.py b/backend/routes/admin.py
+index 74d85d30..642a06dc 100644
+--- a/backend/routes/admin.py
++++ b/backend/routes/admin.py
+@@ -2,10 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException
+ from sqlalchemy import select, func
+ from sqlalchemy.ext.asyncio import AsyncSession
+ 
+-from auth_utils import get_current_user, require_role, hash_password, send_coach_approval_email, send_coach_rejection_email
++from auth_utils import (
++    get_current_user, require_role, hash_password, send_coach_approval_email, send_coach_rejection_email,
++    generate_otp, otp_expiry, generate_temp_password, send_admin_created_athlete_email,
++)
+ from database import get_db
+-from models import User, CoachProfile, AthleteProfile, RoleEnum, CoachStatusEnum
+-from schemas import CoachResponse, AthleteResponse, UserResponse, CoachApprovalRequest, DashboardStats, MessageResponse, CreateAdminRequest
++from models import User, CoachProfile, AthleteProfile, RoleEnum, CoachStatusEnum, Food, FoodTrendEnum
++from schemas import (
++    CoachResponse, AthleteResponse, UserResponse, CoachApprovalRequest, DashboardStats, MessageResponse,
++    CreateAdminRequest, AdminCreateAthleteRequest, FoodCreateRequest, FoodUpdateRequest, FoodResponse,
++)
+ 
+ router = APIRouter(prefix="/admin", tags=["admin"])
+ 
+@@ -17,7 +23,10 @@ async def get_stats(
+     db: AsyncSession = Depends(get_db),
+     current_user=Depends(require_role("admin", "super_admin")),
+ ):
+-    athletes  = await db.execute(select(func.count()).where(User.role == RoleEnum.athlete))
++    athlete_query = select(func.count()).where(User.role == RoleEnum.athlete)
++    if current_user.role == RoleEnum.admin:
++        athlete_query = athlete_query.where(User.created_by == current_user.id)
++    athletes  = await db.execute(athlete_query)
+     coaches   = await db.execute(select(func.count()).where(User.role == RoleEnum.coach))
+     pending   = await db.execute(select(func.count()).select_from(CoachProfile).where(CoachProfile.status == CoachStatusEnum.pending))
+     approved  = await db.execute(select(func.count()).select_from(CoachProfile).where(CoachProfile.status == CoachStatusEnum.approved))
+@@ -114,13 +123,18 @@ async def review_coach(
+ 
+ 
+ # ── List athletes ──────────────────────────────────────────────────────────────
++# Admins only see athletes they personally created; super_admins see everyone.
+ 
+ @router.get("/athletes", response_model=list[AthleteResponse])
+ async def list_athletes(
+     db: AsyncSession = Depends(get_db),
+     current_user=Depends(require_role("admin", "super_admin")),
+ ):
+-    result = await db.execute(select(User).where(User.role == RoleEnum.athlete))
++    query = select(User).where(User.role == RoleEnum.athlete)
++    if current_user.role == RoleEnum.admin:
++        query = query.where(User.created_by == current_user.id)
++
++    result = await db.execute(query)
+     users = result.scalars().all()
+     return [
+         AthleteResponse(
+@@ -131,6 +145,41 @@ async def list_athletes(
+     ]
+ 
+ 
++# ── Admin creates an athlete account on their behalf ───────────────────────────
++# Account stays inactive (is_verified=False) until the athlete verifies their email.
++
++@router.post("/athletes", response_model=MessageResponse, status_code=201)
++async def admin_create_athlete(
++    body: AdminCreateAthleteRequest,
++    db: AsyncSession = Depends(get_db),
++    current_user=Depends(require_role("admin", "super_admin")),
++):
++    existing = await db.execute(select(User).where(User.email == body.email))
++    if existing.scalar_one_or_none():
++        raise HTTPException(status_code=409, detail="Email already in use.")
++
++    temp_password = generate_temp_password()
++    code = generate_otp()
++
++    user = User(
++        name=body.name,
++        email=body.email,
++        hashed_password=hash_password(temp_password),
++        role=RoleEnum.athlete,
++        is_verified=False,
++        created_by=current_user.id,
++        verification_code=code,
++        verification_code_expires_at=otp_expiry(),
++    )
++    db.add(user)
++    await db.flush()
++    db.add(AthleteProfile(user_id=user.id))
++    await db.commit()
++
++    await send_admin_created_athlete_email(body.email, body.name, code, temp_password)
++    return {"message": f"Athlete account created for {body.name}. They must verify their email to activate it."}
++
++
+ # ── Delete user (admin or super_admin only) ───────────────────────────────────
+ 
+ @router.delete("/users/{user_id}", response_model=MessageResponse)
+@@ -148,3 +197,101 @@ async def delete_user(
+     await db.delete(user)
+     await db.commit()
+     return {"message": f"User {user.name} deleted."}
++
++
++# ── Food database ────────────────────────────────────────────────────────────
++# Shared by admins and super_admins; any admin can manage the shared catalog.
++
++def _food_response(f: Food) -> FoodResponse:
++    return FoodResponse(
++        id=str(f.id),
++        name=f.name,
++        category=f.category.value,
++        price=float(f.price),
++        currency=f.currency,
++        unit=f.unit,
++        trend=f.trend.value,
++        updated_at=f.updated_at.isoformat(),
++    )
++
++
++@router.get("/food", response_model=list[FoodResponse])
++async def list_food(
++    category: str = "all",
++    db: AsyncSession = Depends(get_db),
++    current_user=Depends(require_role("admin", "super_admin")),
++):
++    query = select(Food)
++    if category != "all":
++        try:
++            query = query.where(Food.category == category)
++        except Exception:
++            raise HTTPException(status_code=400, detail="Invalid category filter.")
++    query = query.order_by(Food.name)
++    result = await db.execute(query)
++    return [_food_response(f) for f in result.scalars().all()]
++
++
++@router.post("/food", response_model=FoodResponse, status_code=201)
++async def create_food(
++    body: FoodCreateRequest,
++    db: AsyncSession = Depends(get_db),
++    current_user=Depends(require_role("admin", "super_admin")),
++):
++    food = Food(
++        name=body.name,
++        category=body.category,
++        price=body.price,
++        currency=body.currency,
++        unit=body.unit,
++        trend=FoodTrendEnum.flat,
++        created_by=current_user.id,
++    )
++    db.add(food)
++    await db.commit()
++    await db.refresh(food)
++    return _food_response(food)
++
++
++@router.put("/food/{food_id}", response_model=FoodResponse)
++async def update_food(
++    food_id: str,
++    body: FoodUpdateRequest,
++    db: AsyncSession = Depends(get_db),
++    current_user=Depends(require_role("admin", "super_admin")),
++):
++    result = await db.execute(select(Food).where(Food.id == food_id))
++    food = result.scalar_one_or_none()
++    if not food:
++        raise HTTPException(status_code=404, detail="Food item not found.")
++
++    if body.price is not None and float(food.price) != body.price:
++        food.trend = FoodTrendEnum.up if body.price > float(food.price) else FoodTrendEnum.down
++        food.price = body.price
++    if body.name is not None:
++        food.name = body.name
++    if body.category is not None:
++        food.category = body.category
++    if body.currency is not None:
++        food.currency = body.currency
++    if body.unit is not None:
++        food.unit = body.unit
++
++    await db.commit()
++    await db.refresh(food)
++    return _food_response(food)
++
++
++@router.delete("/food/{food_id}", response_model=MessageResponse)
++async def delete_food(
++    food_id: str,
++    db: AsyncSession = Depends(get_db),
++    current_user=Depends(require_role("admin", "super_admin")),
++):
++    result = await db.execute(select(Food).where(Food.id == food_id))
++    food = result.scalar_one_or_none()
++    if not food:
++        raise HTTPException(status_code=404, detail="Food item not found.")
++    await db.delete(food)
++    await db.commit()
++    return {"message": f"{food.name} deleted."}
+diff --git a/backend/schemas.py b/backend/schemas.py
+index f1c9c780..18426fde 100644
+--- a/backend/schemas.py
++++ b/backend/schemas.py
+@@ -136,6 +136,62 @@ class CreateAdminRequest(BaseModel):
+     password: str
+ 
+ 
++class AdminCreateAthleteRequest(BaseModel):
++    name: str
++    email: EmailStr
++
++    @field_validator("name")
++    @classmethod
++    def name_not_empty(cls, v):
++        v = v.strip()
++        if len(v) < 2: raise ValueError("Name must be at least 2 characters.")
++        return v
++
++
++# ── Food database ────────────────────────────────────────────────────────────
++
++class FoodCreateRequest(BaseModel):
++    name: str
++    category: Literal["protein", "carbs", "fats", "produce", "dairy", "supplement"]
++    price: float
++    currency: str = "TND"
++    unit: str
++
++    @field_validator("name")
++    @classmethod
++    def name_not_empty(cls, v):
++        v = v.strip()
++        if len(v) < 1: raise ValueError("Name is required.")
++        return v
++
++    @field_validator("price")
++    @classmethod
++    def price_positive(cls, v):
++        if v <= 0: raise ValueError("Price must be greater than 0.")
++        return v
++
++
++class FoodUpdateRequest(BaseModel):
++    name: Optional[str] = None
++    category: Optional[Literal["protein", "carbs", "fats", "produce", "dairy", "supplement"]] = None
++    price: Optional[float] = None
++    currency: Optional[str] = None
++    unit: Optional[str] = None
++
++
++class FoodResponse(BaseModel):
++    id: str
++    name: str
++    category: str
++    price: float
++    currency: str
++    unit: str
++    trend: str
++    updated_at: str
++
++    model_config = {"from_attributes": True}
++
++
+ # ── Stats ──────────────────────────────────────────────────────────────────────
+ 
+ class DashboardStats(BaseModel):

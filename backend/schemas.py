@@ -136,6 +136,62 @@ class CreateAdminRequest(BaseModel):
     password: str
 
 
+class AdminCreateAthleteRequest(BaseModel):
+    name: str
+    email: EmailStr
+
+    @field_validator("name")
+    @classmethod
+    def name_not_empty(cls, v):
+        v = v.strip()
+        if len(v) < 2: raise ValueError("Name must be at least 2 characters.")
+        return v
+
+
+# ── Food database ────────────────────────────────────────────────────────────
+
+class FoodCreateRequest(BaseModel):
+    name: str
+    category: Literal["protein", "carbs", "fats", "produce", "dairy", "supplement"]
+    price: float
+    currency: str = "TND"
+    unit: str
+
+    @field_validator("name")
+    @classmethod
+    def name_not_empty(cls, v):
+        v = v.strip()
+        if len(v) < 1: raise ValueError("Name is required.")
+        return v
+
+    @field_validator("price")
+    @classmethod
+    def price_positive(cls, v):
+        if v <= 0: raise ValueError("Price must be greater than 0.")
+        return v
+
+
+class FoodUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    category: Optional[Literal["protein", "carbs", "fats", "produce", "dairy", "supplement"]] = None
+    price: Optional[float] = None
+    currency: Optional[str] = None
+    unit: Optional[str] = None
+
+
+class FoodResponse(BaseModel):
+    id: str
+    name: str
+    category: str
+    price: float
+    currency: str
+    unit: str
+    trend: str
+    updated_at: str
+
+    model_config = {"from_attributes": True}
+
+
 # ── Stats ──────────────────────────────────────────────────────────────────────
 
 class DashboardStats(BaseModel):

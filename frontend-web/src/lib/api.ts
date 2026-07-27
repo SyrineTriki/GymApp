@@ -148,6 +148,15 @@ export async function getAthletes() {
   return handle<Athlete[]>(res);
 }
 
+export async function createAthlete(name: string, email: string) {
+  const res = await fetch(`${V1}/admin/athletes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ name, email }),
+  });
+  return handle<{ message: string }>(res);
+}
+
 export async function deleteUser(id: string) {
   const res = await fetch(`${V1}/admin/users/${id}`, { method: "DELETE", headers: authHeaders() });
   return handle<{ message: string }>(res);
@@ -155,6 +164,57 @@ export async function deleteUser(id: string) {
 
 export function certUrl(filename: string) {
   return `${API_BASE}/uploads/${filename}`;
+}
+
+// ── Food database ─────────────────────────────────────────────────────────
+
+export type FoodCategory = "protein" | "carbs" | "fats" | "produce" | "dairy" | "supplement";
+
+export interface Food {
+  id: string;
+  name: string;
+  category: FoodCategory;
+  price: number;
+  currency: string;
+  unit: string;
+  trend: "up" | "down" | "flat";
+  updated_at: string;
+}
+
+export interface FoodInput {
+  name: string;
+  category: FoodCategory;
+  price: number;
+  currency?: string;
+  unit: string;
+}
+
+export async function getFood(category: string = "all") {
+  const res = await fetch(`${V1}/admin/food?category=${category}`, { headers: authHeaders() });
+  return handle<Food[]>(res);
+}
+
+export async function createFood(input: FoodInput) {
+  const res = await fetch(`${V1}/admin/food`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(input),
+  });
+  return handle<Food>(res);
+}
+
+export async function updateFood(id: string, input: Partial<FoodInput>) {
+  const res = await fetch(`${V1}/admin/food/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(input),
+  });
+  return handle<Food>(res);
+}
+
+export async function deleteFood(id: string) {
+  const res = await fetch(`${V1}/admin/food/${id}`, { method: "DELETE", headers: authHeaders() });
+  return handle<{ message: string }>(res);
 }
 
 // ── Super admin ───────────────────────────────────────────────────────────

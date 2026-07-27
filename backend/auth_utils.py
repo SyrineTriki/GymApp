@@ -101,6 +101,29 @@ def _get_fastmail() -> FastMail:
     return FastMail(config)
 
 
+def generate_temp_password() -> str:
+    return secrets.token_urlsafe(9)
+
+
+async def send_admin_created_athlete_email(email: str, name: str, code: str, temp_password: str) -> None:
+    html_body = f"""
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px;background:#0d0d0d;color:#f0f0f0;border-radius:12px;">
+      <h2 style="color:#ef4444;">Welcome to GymApp, {name}! 💪</h2>
+      <p style="color:#888;">An account has been created for you. Verify your email with the code below, then log in with the temporary password provided.</p>
+      <div style="font-size:36px;font-weight:900;letter-spacing:12px;color:#ef4444;margin:24px 0;text-align:center;">{code}</div>
+      <p style="color:#888;">Temporary password: <strong style="color:#f0f0f0;">{temp_password}</strong></p>
+      <p style="font-size:12px;color:#555;">Please change your password after logging in.</p>
+    </div>
+    """
+    message = MessageSchema(
+        subject="Your GymApp account is ready",
+        recipients=[email],
+        body=html_body,
+        subtype=MessageType.html,
+    )
+    await _get_fastmail().send_message(message)
+
+
 async def send_verification_email(email: str, name: str, code: str) -> None:
     html_body = f"""
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px;background:#0d0d0d;color:#f0f0f0;border-radius:12px;">

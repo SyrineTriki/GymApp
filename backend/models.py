@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, date
 from sqlalchemy import (
     Column, String, Boolean, DateTime, Date, Integer,
-    Text, Enum as SAEnum, ForeignKey
+    Text, Enum as SAEnum, ForeignKey, Numeric
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -23,6 +23,21 @@ class CoachStatusEnum(str, enum.Enum):
     rejected = "rejected"
 
 
+class FoodCategoryEnum(str, enum.Enum):
+    protein    = "protein"
+    carbs      = "carbs"
+    fats       = "fats"
+    produce    = "produce"
+    dairy      = "dairy"
+    supplement = "supplement"
+
+
+class FoodTrendEnum(str, enum.Enum):
+    up   = "up"
+    down = "down"
+    flat = "flat"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -39,6 +54,10 @@ class User(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Set when an admin creates the account on the athlete's behalf (vs. self-registration).
+    # Admins can only see/manage athletes where created_by == their own id.
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     athlete_profile = relationship("AthleteProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
     coach_profile   = relationship("CoachProfile",   back_populates="user", uselist=False, cascade="all, delete-orphan")
@@ -66,3 +85,19 @@ class CoachProfile(Base):
     rejection_reason       = Column(Text,         nullable=True)
 
     user = relationship("User", back_populates="coach_profile")
+
+
+class Food(Base):
+    __tablename__ = "foods"
+
+    id         = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name       = Column(String(150), nullable=False)
+    category   = Column(SAEnum(FoodCategoryEnum), nullable=False)
+    price      = Column(Numeric(10, 2), nullable=False)
+    currency   = Column(String(10), nullable=False, default="TND")
+    unit       = Column(String(30), nullable=False)    # e.g. "kg", "500 g", "L", "12"
+    trend      = Column(SAEnum(FoodTrendEnum), nullable=False, default=FoodTrendEnum.flat)
+
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
