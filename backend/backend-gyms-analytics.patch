@@ -1,0 +1,301 @@
+diff --git a/backend/models.py b/backend/models.py
+index 9ab63add..e37edb2b 100644
+--- a/backend/models.py
++++ b/backend/models.py
+@@ -52,6 +52,9 @@ class User(Base):
+     verification_code        = Column(String(6),   nullable=True)   # 6-digit OTP
+     verification_code_expires_at = Column(DateTime, nullable=True)
+ 
++    reset_password_code = Column(String(10), nullable=True)
++    reset_password_code_expires_at = Column(DateTime, nullable=True)
++
+     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+ 
+@@ -101,3 +104,17 @@ class Food(Base):
+     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
++
++
++class Gym(Base):
++    __tablename__ = "gyms"
++
++    id         = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
++    name       = Column(String(150), nullable=False)
++    address    = Column(String(255), nullable=True)
++    phone      = Column(String(30), nullable=True)
++    capacity   = Column(Integer, nullable=True)
++
++    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
++    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
++    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+diff --git a/backend/routes/super_admin.py b/backend/routes/super_admin.py
+index 42b563ea..590e4770 100644
+--- a/backend/routes/super_admin.py
++++ b/backend/routes/super_admin.py
+@@ -1,11 +1,15 @@
+ from fastapi import APIRouter, Depends, HTTPException
+-from sqlalchemy import select
++from sqlalchemy import select, func, cast, Date
+ from sqlalchemy.ext.asyncio import AsyncSession
+ 
+ from auth_utils import require_role, hash_password
+ from database import get_db
+-from models import User, RoleEnum
+-from schemas import CreateAdminRequest, MessageResponse, UserResponse
++from models import User, RoleEnum, CoachProfile, CoachStatusEnum, Gym, Food, FoodCategoryEnum
++from schemas import (
++    CreateAdminRequest, MessageResponse, UserResponse, AthleteResponse,
++    GymCreateRequest, GymUpdateRequest, GymResponse,
++    AnalyticsResponse, SignupPoint, CoachStatusBreakdown, FoodCategoryBreakdown,
++)
+ 
+ router = APIRouter(prefix="/super-admin", tags=["super-admin"])
+ 
+@@ -70,3 +74,149 @@ async def delete_admin(
+     await db.delete(admin)
+     await db.commit()
+     return {"message": f"Admin {admin.name} deleted."}
++
++
++# ── Users (all athletes, unscoped — super_admin sees everyone) ─────────────────
++
++@router.get("/users", response_model=list[AthleteResponse])
++async def list_all_users(
++    db: AsyncSession = Depends(get_db),
++    current_user=Depends(require_role("super_admin")),
++):
++    result = await db.execute(select(User).where(User.role == RoleEnum.athlete))
++    users = result.scalars().all()
++    return [
++        AthleteResponse(
++            id=str(u.id), name=u.name, email=u.email,
++            is_verified=u.is_verified, created_at=u.created_at.isoformat(),
++        )
++        for u in users
++    ]
++
++
++# ── Gyms ──────────────────────────────────────────────────────────────────────
++
++def _gym_response(g: Gym) -> GymResponse:
++    return GymResponse(
++        id=str(g.id), name=g.name, address=g.address, phone=g.phone, capacity=g.capacity,
++        created_at=g.created_at.isoformat(), updated_at=g.updated_at.isoformat(),
++    )
++
++
++@router.get("/gyms", response_model=list[GymResponse])
++async def list_gyms(
++    db: AsyncSession = Depends(get_db),
++    current_user=Depends(require_role("super_admin")),
++):
++    result = await db.execute(select(Gym).order_by(Gym.name))
++    return [_gym_response(g) for g in result.scalars().all()]
++
++
++@router.post("/gyms", response_model=GymResponse, status_code=201)
++async def create_gym(
++    body: GymCreateRequest,
++    db: AsyncSession = Depends(get_db),
++    current_user=Depends(require_role("super_admin")),
++):
++    gym = Gym(
++        name=body.name, address=body.address, phone=body.phone, capacity=body.capacity,
++        created_by=current_user.id,
++    )
++    db.add(gym)
++    await db.commit()
++    await db.refresh(gym)
++    return _gym_response(gym)
++
++
++@router.put("/gyms/{gym_id}", response_model=GymResponse)
++async def update_gym(
++    gym_id: str,
++    body: GymUpdateRequest,
++    db: AsyncSession = Depends(get_db),
++    current_user=Depends(require_role("super_admin")),
++):
++    result = await db.execute(select(Gym).where(Gym.id == gym_id))
++    gym = result.scalar_one_or_none()
++    if not gym:
++        raise HTTPException(status_code=404, detail="Gym not found.")
++
++    if body.name is not None: gym.name = body.name
++    if body.address is not None: gym.address = body.address
++    if body.phone is not None: gym.phone = body.phone
++    if body.capacity is not None: gym.capacity = body.capacity
++
++    await db.commit()
++    await db.refresh(gym)
++    return _gym_response(gym)
++
++
++@router.delete("/gyms/{gym_id}", response_model=MessageResponse)
++async def delete_gym(
++    gym_id: str,
++    db: AsyncSession = Depends(get_db),
++    current_user=Depends(require_role("super_admin")),
++):
++    result = await db.execute(select(Gym).where(Gym.id == gym_id))
++    gym = result.scalar_one_or_none()
++    if not gym:
++        raise HTTPException(status_code=404, detail="Gym not found.")
++    await db.delete(gym)
++    await db.commit()
++    return {"message": f"{gym.name} deleted."}
++
++
++# ── Analytics ─────────────────────────────────────────────────────────────────
++# Built from real data: signups are bucketed from each user's actual created_at,
++# not synthetic/sample numbers.
++
++@router.get("/analytics", response_model=AnalyticsResponse)
++async def get_analytics(
++    db: AsyncSession = Depends(get_db),
++    current_user=Depends(require_role("super_admin")),
++):
++    # Signups per day, last 30 days, split by role
++    signup_rows = await db.execute(
++        select(cast(User.created_at, Date).label("day"), User.role, func.count())
++        .where(User.role.in_([RoleEnum.athlete, RoleEnum.coach]))
++        .group_by("day", User.role)
++        .order_by("day")
++    )
++    by_day: dict[str, dict[str, int]] = {}
++    for day, role, count in signup_rows.all():
++        key = day.isoformat()
++        by_day.setdefault(key, {"athletes": 0, "coaches": 0})
++        by_day[key]["athletes" if role == RoleEnum.athlete else "coaches"] = count
++    signups_by_day = [
++        SignupPoint(date=day, athletes=v["athletes"], coaches=v["coaches"])
++        for day, v in sorted(by_day.items())
++    ]
++
++    # Coach approval funnel
++    status_rows = await db.execute(
++        select(CoachProfile.status, func.count()).group_by(CoachProfile.status)
++    )
++    status_counts = {s.value: 0 for s in CoachStatusEnum}
++    for status, count in status_rows.all():
++        status_counts[status.value] = count
++
++    # Food catalog: count + average price per category
++    food_rows = await db.execute(
++        select(Food.category, func.count(), func.avg(Food.price)).group_by(Food.category)
++    )
++    food_breakdown = [
++        FoodCategoryBreakdown(category=cat.value, count=count, avg_price=round(float(avg_price or 0), 2))
++        for cat, count, avg_price in food_rows.all()
++    ]
++
++    total_gyms = (await db.execute(select(func.count()).select_from(Gym))).scalar() or 0
++    total_admins = (await db.execute(
++        select(func.count()).where(User.role == RoleEnum.admin)
++    )).scalar() or 0
++
++    return AnalyticsResponse(
++        signups_by_day=signups_by_day,
++        coach_status_breakdown=CoachStatusBreakdown(**status_counts),
++        food_category_breakdown=food_breakdown,
++        total_gyms=total_gyms,
++        total_admins=total_admins,
++    )
+diff --git a/backend/schemas.py b/backend/schemas.py
+index 18426fde..438cdce7 100644
+--- a/backend/schemas.py
++++ b/backend/schemas.py
+@@ -70,6 +70,24 @@ class VerifyCodeRequest(BaseModel):
+     code: str
+ 
+ 
++class AdminForgotPasswordRequest(BaseModel):
++    email: EmailStr
++
++
++class AdminResetPasswordRequest(BaseModel):
++    email: EmailStr
++    code: str
++    new_password: str
++
++    @field_validator("new_password")
++    @classmethod
++    def password_strength(cls, v):
++        if len(v) < 8: raise ValueError("Password must be at least 8 characters.")
++        if not re.search(r"[A-Z]", v): raise ValueError("Add at least one uppercase letter.")
++        if not re.search(r"\d", v): raise ValueError("Add at least one digit.")
++        return v
++
++
+ class ResendCodeRequest(BaseModel):
+     email: EmailStr
+ 
+@@ -201,3 +219,66 @@ class DashboardStats(BaseModel):
+     approved_coaches: int
+     rejected_coaches: int
+     total_admins: Optional[int] = None
++
++
++# ── Gyms ──────────────────────────────────────────────────────────────────────
++
++class GymCreateRequest(BaseModel):
++    name: str
++    address: Optional[str] = None
++    phone: Optional[str] = None
++    capacity: Optional[int] = None
++
++    @field_validator("name")
++    @classmethod
++    def name_not_empty(cls, v):
++        v = v.strip()
++        if len(v) < 1: raise ValueError("Gym name is required.")
++        return v
++
++
++class GymUpdateRequest(BaseModel):
++    name: Optional[str] = None
++    address: Optional[str] = None
++    phone: Optional[str] = None
++    capacity: Optional[int] = None
++
++
++class GymResponse(BaseModel):
++    id: str
++    name: str
++    address: Optional[str] = None
++    phone: Optional[str] = None
++    capacity: Optional[int] = None
++    created_at: str
++    updated_at: str
++
++    model_config = {"from_attributes": True}
++
++
++# ── Analytics ─────────────────────────────────────────────────────────────────
++
++class SignupPoint(BaseModel):
++    date: str
++    athletes: int
++    coaches: int
++
++
++class CoachStatusBreakdown(BaseModel):
++    pending: int
++    approved: int
++    rejected: int
++
++
++class FoodCategoryBreakdown(BaseModel):
++    category: str
++    count: int
++    avg_price: float
++
++
++class AnalyticsResponse(BaseModel):
++    signups_by_day: List[SignupPoint]
++    coach_status_breakdown: CoachStatusBreakdown
++    food_category_breakdown: List[FoodCategoryBreakdown]
++    total_gyms: int
++    total_admins: int

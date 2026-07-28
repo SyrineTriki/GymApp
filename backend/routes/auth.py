@@ -8,10 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth_utils import (
     generate_otp, otp_expiry, hash_password, verify_password,
     save_certification, send_verification_email, create_access_token,
+    send_password_reset_email,
 )
 from database import get_db
 from models import AthleteProfile, CoachProfile, CoachStatusEnum, RoleEnum, User
-from schemas import MessageResponse, VerifyCodeRequest, ResendCodeRequest
+from schemas import (
+    MessageResponse, VerifyCodeRequest, ResendCodeRequest,
+    AdminForgotPasswordRequest, AdminResetPasswordRequest,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -217,3 +221,47 @@ async def login(
 
     token = create_access_token({"sub": str(user.id), "role": user.role.value})
     return {"access_token": token, "token_type": "bearer", "role": user.role.value, "name": user.name}
+
+
+# ── Admin/super_admin forgot password — Step 1: send reset code ────────────────
+# Scoped to admin & super_admin only (coach/athlete accounts don't use this flow).
+# Always returns the same generic message so emails can't be enumerated.
+
+_GENERIC_FORGOT_MSG = "If an admin account exists with that email, a reset code has been sent."
+
+
+@router.post("/admin/forgot-password", response_model=MessageResponse)
+async def admin_forgot_password(body: AdminForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
+
+    if user and user.role in (RoleEnum.admin, RoleEnum.super_admin) and user.is_verified:
+        code = generate_otp()
+        user.reset_password_code = code
+        user.reset_password_code_expires_at = otp_expiry()
+        await db.commit()
+        await send_password_reset_email(user.email, user.name, code)
+
+    return {"message": _GENERIC_FORGOT_MSG}
+
+
+# ── Admin/super_admin forgot password — Step 2: verify code + set new password ─
+
+@router.post("/admin/reset-password", response_model=MessageResponse)
+async def admin_reset_password(body: AdminResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
+
+    if not user or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code.")
+    if not user.reset_password_code or user.reset_password_code != body.code:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code.")
+    if not user.reset_password_code_expires_at or datetime.utcnow() > user.reset_password_code_expires_at:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code.")
+
+    user.hashed_password = hash_password(body.new_password)
+    user.reset_password_code = None
+    user.reset_password_code_expires_at = None
+    await db.commit()
+
+    return {"message": "Password updated. You can now sign in with your new password."}

@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 
 export default function LoginPage() {
-  const { login, isLoggedIn, isAdmin, isSuperAdmin, loading: authLoading } = useAuth();
+  const { login, logout, isLoggedIn, isAdmin, isSuperAdmin, loading: authLoading } = useAuth();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -34,11 +34,16 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      // redirect happens after localStorage is set; re-read role directly
       const role = localStorage.getItem("role");
-      if (role === "super_admin") router.replace("/super-admin");
-      else if (role === "admin") router.replace("/admin");
-      else router.replace("/login");
+      if (role === "super_admin") {
+        router.replace("/super-admin");
+      } else if (role === "admin") {
+        router.replace("/admin");
+      } else {
+        // Athlete/coach accounts use the mobile app, not this portal.
+        logout();
+        setError("This portal is for admin and super admin accounts only.");
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong.");
     } finally {
@@ -58,12 +63,18 @@ export default function LoginPage() {
 
       <Card className="relative w-full max-w-sm border-border bg-surface/70 p-8 backdrop-blur-xl">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <div className="grid size-12 place-items-center rounded-xl bg-gradient-to-br from-teal to-violet shadow-[0_8px_24px_-8px_var(--teal-glow)] animate-pulse-glow">
-            <Zap className="size-6 text-primary-foreground" strokeWidth={2.5} />
+          <div className="flex items-center gap-2">
+            <div className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-teal to-violet shadow-[0_8px_24px_-8px_var(--teal-glow)] animate-pulse-glow">
+              <Zap className="size-5 text-primary-foreground" strokeWidth={2.5} />
+            </div>
+            <span className="text-lg font-bold tracking-tight">GymApp</span>
+            <span className="rounded-full border border-teal/30 bg-teal/10 px-2.5 py-0.5 text-xs font-semibold text-teal">
+              Admin Portal
+            </span>
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight">GymApp</h1>
-            <p className="text-sm text-muted-foreground">Sign in to your dashboard</p>
+            <h1 className="text-2xl font-bold tracking-tight">Sign in</h1>
+            <p className="text-sm text-muted-foreground">Admin and super admin access only.</p>
           </div>
         </div>
 
@@ -81,7 +92,12 @@ export default function LoginPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password">Password</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <Link href="/forgot-password" className="text-xs text-violet hover:underline">
+                Forgot password?
+              </Link>
+            </div>
             <div className="relative">
               <Input
                 id="password"
@@ -111,13 +127,6 @@ export default function LoginPage() {
             {loading ? "Signing in…" : "Sign in"}
           </Button>
         </form>
-
-        <p className="mt-6 text-center text-sm text-muted-foreground">
-          Don&apos;t have an account?{" "}
-          <Link href="/register" className="text-violet hover:underline">
-            Register
-          </Link>
-        </p>
       </Card>
     </div>
   );

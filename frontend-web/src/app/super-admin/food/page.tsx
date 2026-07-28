@@ -1,15 +1,15 @@
 "use client";
 
-import { AdminShell } from "@/components/admin-shell";
+import { SuperShell } from "@/components/super-shell";
 import { RequireRole } from "@/components/require-role";
 import { FoodDatabasePanel } from "@/components/food-database-panel";
 
-export default function FoodDatabasePage() {
+export default function SuperAdminFoodPage() {
   return (
-    <RequireRole role="admin">
-      <AdminShell title="Food Database">
+    <RequireRole role="super_admin">
+      <SuperShell title="Food Database">
         <FoodDatabasePanel />
-      </AdminShell>
+      </SuperShell>
     </RequireRole>
   );
 }

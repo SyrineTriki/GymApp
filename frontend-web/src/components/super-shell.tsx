@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Crown, Bell, Search, LogOut } from "lucide-react";
+import { LayoutGrid, Users, UserCog, Building2, Apple, BarChart3, Bell, Search, LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -12,8 +12,12 @@ export function SuperShell({ title, children }: { title: string; children: React
   const { name, logout } = useAuth();
 
   const nav = [
-    { to: "/super-admin", label: "Command Center" },
-    { to: "/admin", label: "Coach Admin" },
+    { to: "/super-admin", label: "Overview", icon: LayoutGrid },
+    { to: "/super-admin/users", label: "Users", icon: Users },
+    { to: "/super-admin/coaches", label: "Coaches", icon: UserCog },
+    { to: "/super-admin/gyms", label: "Gyms", icon: Building2 },
+    { to: "/super-admin/food", label: "Food Database", icon: Apple },
+    { to: "/super-admin/analytics", label: "Analytics", icon: BarChart3 },
   ];
 
   return (
@@ -30,7 +34,7 @@ export function SuperShell({ title, children }: { title: string; children: React
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-sidebar-border bg-sidebar/80 backdrop-blur-xl md:flex md:flex-col">
           <div className="flex items-center gap-3 px-6 py-6">
             <div className="grid size-11 place-items-center rounded-xl bg-gradient-to-br from-violet to-teal shadow-[0_8px_24px_-8px_var(--violet)] animate-pulse-glow">
-              <Crown className="size-5 text-primary-foreground" strokeWidth={2.5} />
+              <LayoutGrid className="size-5 text-primary-foreground" strokeWidth={2.5} />
             </div>
             <div>
               <div className="text-sm font-bold tracking-tight">GymApp</div>
@@ -40,6 +44,7 @@ export function SuperShell({ title, children }: { title: string; children: React
           <nav className="flex-1 space-y-1 px-3">
             {nav.map((item) => {
               const active = pathname === item.to;
+              const Icon = item.icon;
               return (
                 <Link
                   key={item.to}
@@ -51,6 +56,10 @@ export function SuperShell({ title, children }: { title: string; children: React
                       : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground",
                   )}
                 >
+                  {active && (
+                    <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-violet" />
+                  )}
+                  <Icon className="size-4.5 shrink-0" strokeWidth={2} />
                   {item.label}
                 </Link>
               );

@@ -105,6 +105,24 @@ def generate_temp_password() -> str:
     return secrets.token_urlsafe(9)
 
 
+async def send_password_reset_email(email: str, name: str, code: str) -> None:
+    html_body = f"""
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px;background:#0d0d0d;color:#f0f0f0;border-radius:12px;">
+      <h2 style="color:#ef4444;">Password reset requested</h2>
+      <p style="color:#888;">Hi {name}, use the code below to reset your GymApp admin password. It expires shortly.</p>
+      <div style="font-size:36px;font-weight:900;letter-spacing:12px;color:#ef4444;margin:24px 0;text-align:center;">{code}</div>
+      <p style="font-size:12px;color:#555;">If you didn't request this, you can safely ignore this email.</p>
+    </div>
+    """
+    message = MessageSchema(
+        subject="Reset your GymApp admin password",
+        recipients=[email],
+        body=html_body,
+        subtype=MessageType.html,
+    )
+    await _get_fastmail().send_message(message)
+
+
 async def send_admin_created_athlete_email(email: str, name: str, code: str, temp_password: str) -> None:
     html_body = f"""
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px;background:#0d0d0d;color:#f0f0f0;border-radius:12px;">

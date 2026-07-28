@@ -52,12 +52,19 @@ class User(Base):
     verification_code        = Column(String(6),   nullable=True)   # 6-digit OTP
     verification_code_expires_at = Column(DateTime, nullable=True)
 
+    reset_password_code = Column(String(10), nullable=True)
+    reset_password_code_expires_at = Column(DateTime, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Set when an admin creates the account on the athlete's behalf (vs. self-registration).
     # Admins can only see/manage athletes where created_by == their own id.
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    # Every admin belongs to exactly one gym (set at admin-account creation time).
+    gym_id = Column(UUID(as_uuid=True), ForeignKey("gyms.id", ondelete="SET NULL"), nullable=True)
+    gym = relationship("Gym", back_populates="admins", foreign_keys=[gym_id])
 
     athlete_profile = relationship("AthleteProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
     coach_profile   = relationship("CoachProfile",   back_populates="user", uselist=False, cascade="all, delete-orphan")
@@ -101,3 +108,22 @@ class Food(Base):
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class Gym(Base):
+    __tablename__ = "gyms"
+
+    id               = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name             = Column(String(150), nullable=False)
+    owner_name       = Column(String(150), nullable=False)
+    location         = Column(String(255), nullable=False)
+    price_per_month  = Column(Numeric(10, 2), nullable=False)   # athlete membership price
+    latitude         = Column(Numeric(10, 7), nullable=True)
+    longitude        = Column(Numeric(10, 7), nullable=True)
+
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # A gym has one or more admins; every admin belongs to exactly one gym.
+    admins = relationship("User", back_populates="gym", foreign_keys="User.gym_id")

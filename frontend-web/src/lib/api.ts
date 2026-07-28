@@ -33,53 +33,20 @@ export async function login(email: string, password: string) {
   return handle<LoginResponse>(res);
 }
 
-export interface AthleteRegisterInput {
-  name: string;
-  email: string;
-  password: string;
-  date_of_birth: string;
-}
-
-export async function registerAthlete(input: AthleteRegisterInput) {
-  const form = new FormData();
-  Object.entries(input).forEach(([k, v]) => form.append(k, v));
-  const res = await fetch(`${V1}/auth/register/athlete/send-code`, { method: "POST", body: form });
-  return handle<{ message: string }>(res);
-}
-
-export interface CoachRegisterInput extends AthleteRegisterInput {
-  years_of_experience?: number;
-  bio?: string;
-  certification?: File | null;
-}
-
-export async function registerCoach(input: CoachRegisterInput) {
-  const form = new FormData();
-  form.append("name", input.name);
-  form.append("email", input.email);
-  form.append("password", input.password);
-  form.append("date_of_birth", input.date_of_birth);
-  if (input.years_of_experience != null) form.append("years_of_experience", String(input.years_of_experience));
-  if (input.bio) form.append("bio", input.bio);
-  if (input.certification) form.append("certification", input.certification);
-  const res = await fetch(`${V1}/auth/register/coach/send-code`, { method: "POST", body: form });
-  return handle<{ message: string }>(res);
-}
-
-export async function verifyCode(email: string, code: string) {
-  const res = await fetch(`${V1}/auth/verify-code`, {
+export async function adminForgotPassword(email: string) {
+  const res = await fetch(`${V1}/auth/admin/forgot-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, code }),
+    body: JSON.stringify({ email }),
   });
   return handle<{ message: string }>(res);
 }
 
-export async function resendCode(email: string) {
-  const res = await fetch(`${V1}/auth/resend-code`, {
+export async function adminResetPassword(email: string, code: string, new_password: string) {
+  const res = await fetch(`${V1}/auth/admin/reset-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, code, new_password }),
   });
   return handle<{ message: string }>(res);
 }
@@ -113,6 +80,8 @@ export interface Admin {
   role: string;
   is_verified: boolean;
   created_at: string;
+  gym_id?: string | null;
+  gym_name?: string | null;
 }
 
 export interface DashboardStats {
@@ -224,11 +193,19 @@ export async function getAdmins() {
   return handle<Admin[]>(res);
 }
 
-export async function createAdmin(name: string, email: string, password: string) {
+export async function createAdmin(name: string, email: string, password: string, gym_id: string) {
   const res = await fetch(`${V1}/super-admin/admins`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ name, email, password }),
+    body: JSON.stringify({ name, email, password, gym_id }),
+  });
+  return handle<{ message: string }>(res);
+}
+
+export async function reassignAdminGym(adminId: string, gymId: string) {
+  const res = await fetch(`${V1}/super-admin/admins/${adminId}/gym?gym_id=${gymId}`, {
+    method: "PUT",
+    headers: authHeaders(),
   });
   return handle<{ message: string }>(res);
 }
@@ -236,4 +213,94 @@ export async function createAdmin(name: string, email: string, password: string)
 export async function deleteAdmin(id: string) {
   const res = await fetch(`${V1}/super-admin/admins/${id}`, { method: "DELETE", headers: authHeaders() });
   return handle<{ message: string }>(res);
+}
+
+export async function getAllUsers() {
+  const res = await fetch(`${V1}/super-admin/users`, { headers: authHeaders() });
+  return handle<Athlete[]>(res);
+}
+
+// ── Gyms ─────────────────────────────────────────────────────────────────
+
+export interface Gym {
+  id: string;
+  name: string;
+  owner_name: string;
+  location: string;
+  price_per_month: number;
+  latitude?: number | null;
+  longitude?: number | null;
+  admin_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GymInput {
+  name: string;
+  owner_name: string;
+  location: string;
+  price_per_month: number;
+  latitude?: number;
+  longitude?: number;
+}
+
+export async function getGyms() {
+  const res = await fetch(`${V1}/super-admin/gyms`, { headers: authHeaders() });
+  return handle<Gym[]>(res);
+}
+
+export async function createGym(input: GymInput) {
+  const res = await fetch(`${V1}/super-admin/gyms`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(input),
+  });
+  return handle<Gym>(res);
+}
+
+export async function updateGym(id: string, input: Partial<GymInput>) {
+  const res = await fetch(`${V1}/super-admin/gyms/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(input),
+  });
+  return handle<Gym>(res);
+}
+
+export async function deleteGym(id: string) {
+  const res = await fetch(`${V1}/super-admin/gyms/${id}`, { method: "DELETE", headers: authHeaders() });
+  return handle<{ message: string }>(res);
+}
+
+// ── Analytics ────────────────────────────────────────────────────────────
+
+export interface SignupPoint {
+  date: string;
+  athletes: number;
+  coaches: number;
+}
+
+export interface CoachStatusBreakdown {
+  pending: number;
+  approved: number;
+  rejected: number;
+}
+
+export interface FoodCategoryBreakdown {
+  category: string;
+  count: number;
+  avg_price: number;
+}
+
+export interface Analytics {
+  signups_by_day: SignupPoint[];
+  coach_status_breakdown: CoachStatusBreakdown;
+  food_category_breakdown: FoodCategoryBreakdown[];
+  total_gyms: number;
+  total_admins: number;
+}
+
+export async function getAnalytics() {
+  const res = await fetch(`${V1}/super-admin/analytics`, { headers: authHeaders() });
+  return handle<Analytics>(res);
 }

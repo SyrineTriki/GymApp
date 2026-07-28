@@ -70,6 +70,24 @@ class VerifyCodeRequest(BaseModel):
     code: str
 
 
+class AdminForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class AdminResetPasswordRequest(BaseModel):
+    email: EmailStr
+    code: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v):
+        if len(v) < 8: raise ValueError("Password must be at least 8 characters.")
+        if not re.search(r"[A-Z]", v): raise ValueError("Add at least one uppercase letter.")
+        if not re.search(r"\d", v): raise ValueError("Add at least one digit.")
+        return v
+
+
 class ResendCodeRequest(BaseModel):
     email: EmailStr
 
@@ -134,6 +152,19 @@ class CreateAdminRequest(BaseModel):
     name: str
     email: EmailStr
     password: str
+    gym_id: str   # every admin belongs to exactly one gym
+
+
+class AdminResponse(BaseModel):
+    id: str
+    name: str
+    email: str
+    is_verified: bool
+    created_at: str
+    gym_id: Optional[str] = None
+    gym_name: Optional[str] = None
+
+    model_config = {"from_attributes": True}
 
 
 class AdminCreateAthleteRequest(BaseModel):
@@ -201,3 +232,79 @@ class DashboardStats(BaseModel):
     approved_coaches: int
     rejected_coaches: int
     total_admins: Optional[int] = None
+
+
+# ── Gyms ──────────────────────────────────────────────────────────────────────
+
+class GymCreateRequest(BaseModel):
+    name: str
+    owner_name: str
+    location: str
+    price_per_month: float
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+    @field_validator("name", "owner_name", "location")
+    @classmethod
+    def not_empty(cls, v):
+        v = v.strip()
+        if len(v) < 1: raise ValueError("This field is required.")
+        return v
+
+    @field_validator("price_per_month")
+    @classmethod
+    def price_positive(cls, v):
+        if v <= 0: raise ValueError("Price per month must be greater than 0.")
+        return v
+
+
+class GymUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    owner_name: Optional[str] = None
+    location: Optional[str] = None
+    price_per_month: Optional[float] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+
+class GymResponse(BaseModel):
+    id: str
+    name: str
+    owner_name: str
+    location: str
+    price_per_month: float
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    admin_count: int = 0
+    created_at: str
+    updated_at: str
+
+    model_config = {"from_attributes": True}
+
+
+# ── Analytics ─────────────────────────────────────────────────────────────────
+
+class SignupPoint(BaseModel):
+    date: str
+    athletes: int
+    coaches: int
+
+
+class CoachStatusBreakdown(BaseModel):
+    pending: int
+    approved: int
+    rejected: int
+
+
+class FoodCategoryBreakdown(BaseModel):
+    category: str
+    count: int
+    avg_price: float
+
+
+class AnalyticsResponse(BaseModel):
+    signups_by_day: List[SignupPoint]
+    coach_status_breakdown: CoachStatusBreakdown
+    food_category_breakdown: List[FoodCategoryBreakdown]
+    total_gyms: int
+    total_admins: int
