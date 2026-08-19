@@ -136,6 +136,7 @@ def _gym_response(g: Gym, admin_count: int = 0) -> GymResponse:
         price_per_month=float(g.price_per_month),
         latitude=float(g.latitude) if g.latitude is not None else None,
         longitude=float(g.longitude) if g.longitude is not None else None,
+        email=g.email, phone_number=g.phone_number,
         admin_count=admin_count,
         created_at=g.created_at.isoformat(), updated_at=g.updated_at.isoformat(),
     )
@@ -164,6 +165,7 @@ async def create_gym(
     gym = Gym(
         name=body.name, owner_name=body.owner_name, location=body.location,
         price_per_month=body.price_per_month, latitude=body.latitude, longitude=body.longitude,
+        email=body.email, phone_number=body.phone_number,
         created_by=current_user.id,
     )
     db.add(gym)
@@ -190,6 +192,8 @@ async def update_gym(
     if body.price_per_month is not None: gym.price_per_month = body.price_per_month
     if body.latitude is not None: gym.latitude = body.latitude
     if body.longitude is not None: gym.longitude = body.longitude
+    if body.email is not None: gym.email = body.email
+    if body.phone_number is not None: gym.phone_number = body.phone_number
 
     await db.commit()
     await db.refresh(gym)

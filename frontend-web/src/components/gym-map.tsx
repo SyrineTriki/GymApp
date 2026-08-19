@@ -53,6 +53,8 @@ export default function GymMap({ gyms }: { gyms: Gym[] }) {
               <div className="text-sm">
                 <div className="font-semibold">{g.name}</div>
                 <div className="text-xs text-gray-600">{g.location}</div>
+                {g.email && <div className="text-xs text-gray-600">{g.email}</div>}
+                {g.phone_number && <div className="text-xs text-gray-600">{g.phone_number}</div>}
                 <div className="mt-1 text-xs">
                   {g.price_per_month.toFixed(2)} TND/month · {g.admin_count} admin{g.admin_count === 1 ? "" : "s"}
                 </div>

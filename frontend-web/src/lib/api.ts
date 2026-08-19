@@ -230,6 +230,8 @@ export interface Gym {
   price_per_month: number;
   latitude?: number | null;
   longitude?: number | null;
+  email?: string | null;
+  phone_number?: string | null;
   admin_count: number;
   created_at: string;
   updated_at: string;
@@ -242,6 +244,8 @@ export interface GymInput {
   price_per_month: number;
   latitude?: number;
   longitude?: number;
+  email?: string;
+  phone_number?: string;
 }
 
 export async function getGyms() {

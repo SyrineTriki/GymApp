@@ -39,6 +39,8 @@ interface FormState {
   price_per_month: string;
   latitude: string;
   longitude: string;
+  email: string;
+  phone_number: string;
 }
 
 const emptyForm: FormState = {
@@ -48,6 +50,8 @@ const emptyForm: FormState = {
   price_per_month: "",
   latitude: "",
   longitude: "",
+  email: "",
+  phone_number: "",
 };
 
 function GymsPage() {
@@ -100,14 +104,30 @@ function GymsPage() {
     }
 
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(text)}`,
-      );
-      const results = await res.json();
-      if (results?.[0]) {
-        setForm({ ...form, latitude: results[0].lat, longitude: results[0].lon });
+      // Full precise addresses (building/floor names) often have no exact match
+      // in OpenStreetMap's data, especially outside major cities — retry with
+      // progressively shorter versions (dropping the leading, most specific part)
+      // before giving up.
+      const parts = text.split(",").map((p) => p.trim()).filter(Boolean);
+      const attempts = parts.map((_, i) => parts.slice(i).join(", "));
+      if (attempts[attempts.length - 1] !== text) attempts.push(text);
+
+      let found: { lat: string; lon: string } | null = null;
+      for (const attempt of attempts) {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(attempt)}`,
+        );
+        const results = await res.json();
+        if (results?.[0]) {
+          found = results[0];
+          break;
+        }
+      }
+
+      if (found) {
+        setForm({ ...form, latitude: found.lat, longitude: found.lon });
       } else {
-        setError("Couldn't find that address — try a plain address/place name, paste Google Maps coordinates, or set the pin manually below.");
+        setError("Couldn't find that address in OpenStreetMap's data (coverage in some areas is thinner than Google's) — paste coordinates copied from Google Maps instead, or set the pin manually below.");
       }
     } catch {
       setError("Couldn't reach the location service. Try again in a moment.");
@@ -120,7 +140,7 @@ function GymsPage() {
     e.preventDefault();
     if (!form) return;
     const price = Number(form.price_per_month);
-    if (form.name.trim().length < 1 || !form.owner_name.trim() || !form.location.trim() || !(price > 0)) return;
+    if (form.name.trim().length < 1 || !form.owner_name.trim() || !form.location.trim() || !(price > 0) || !form.email.trim() || !form.phone_number.trim()) return;
     setSaving(true);
     setError("");
     try {
@@ -131,6 +151,8 @@ function GymsPage() {
         price_per_month: price,
         latitude: form.latitude ? Number(form.latitude) : undefined,
         longitude: form.longitude ? Number(form.longitude) : undefined,
+        email: form.email || undefined,
+        phone_number: form.phone_number || undefined,
       };
       if (form.id) {
         await updateGym(form.id, input);
@@ -212,6 +234,8 @@ function GymsPage() {
               </div>
               <div className="space-y-1 text-xs text-muted-foreground">
                 <div>Owner: {g.owner_name}</div>
+                {g.email && <div>{g.email}</div>}
+                {g.phone_number && <div>{g.phone_number}</div>}
                 <div className="font-mono font-semibold text-foreground">
                   {g.price_per_month.toFixed(2)} TND<span className="font-normal text-muted-foreground">/month</span>
                 </div>
@@ -238,6 +262,8 @@ function GymsPage() {
                       price_per_month: String(g.price_per_month),
                       latitude: g.latitude != null ? String(g.latitude) : "",
                       longitude: g.longitude != null ? String(g.longitude) : "",
+                      email: g.email || "",
+                      phone_number: g.phone_number || "",
                     })
                   }
                 >
@@ -320,6 +346,27 @@ function GymsPage() {
                     value={form.longitude}
                     onChange={(e) => setForm({ ...form, longitude: e.target.value })}
                     placeholder="optional"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="g-email">Email</Label>
+                  <Input
+                    id="g-email"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="g-phone">Phone number</Label>
+                  <Input
+                    id="g-phone"
+                    value={form.phone_number}
+                    onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
+                    required
                   />
                 </div>
               </div>

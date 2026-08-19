@@ -120,6 +120,8 @@ class Gym(Base):
     price_per_month  = Column(Numeric(10, 2), nullable=False)   # athlete membership price
     latitude         = Column(Numeric(10, 7), nullable=True)
     longitude        = Column(Numeric(10, 7), nullable=True)
+    email            = Column(String(255), nullable=True)
+    phone_number     = Column(String(30), nullable=True)
 
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

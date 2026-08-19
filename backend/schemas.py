@@ -243,8 +243,10 @@ class GymCreateRequest(BaseModel):
     price_per_month: float
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    email: EmailStr
+    phone_number: str
 
-    @field_validator("name", "owner_name", "location")
+    @field_validator("name", "owner_name", "location", "phone_number")
     @classmethod
     def not_empty(cls, v):
         v = v.strip()
@@ -265,6 +267,8 @@ class GymUpdateRequest(BaseModel):
     price_per_month: Optional[float] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    email: Optional[EmailStr] = None
+    phone_number: Optional[str] = None
 
 
 class GymResponse(BaseModel):
@@ -275,6 +279,8 @@ class GymResponse(BaseModel):
     price_per_month: float
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
     admin_count: int = 0
     created_at: str
     updated_at: str
