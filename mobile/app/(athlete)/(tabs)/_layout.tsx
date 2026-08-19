@@ -6,6 +6,8 @@ import { colors } from '../../../constants/theme';
 const config: TabConfig = {
   home:     { icon: 'grid',      label: 'Home' },
   workout:  { icon: 'activity',  label: 'Train' },
+  library:  { icon: 'book-open', label: 'Library' },
+  plan:     { icon: 'list',      label: 'Plans' },
   scanner:  { icon: 'camera',    label: 'Log Food' },
   aiCoach:  { icon: 'zap',       label: 'AI Coach' },
   profile:  { icon: 'user',      label: 'Profile' },
@@ -19,6 +21,8 @@ export default function AthleteTabsLayout() {
     >
       <Tabs.Screen name="home" />
       <Tabs.Screen name="workout" />
+      <Tabs.Screen name="library" />
+      <Tabs.Screen name="plan" />
       <Tabs.Screen name="scanner" />
       <Tabs.Screen name="aiCoach" />
       <Tabs.Screen name="profile" />

@@ -7,15 +7,19 @@ from fastapi.staticfiles import StaticFiles
 
 from app_config import settings
 from database import init_db
+from seed import seed_exercises
 from routes.auth        import router as auth_router
 from routes.admin       import router as admin_router
 from routes.super_admin import router as super_admin_router
+from routes.exercises   import router as exercises_router
+from routes.plans       import router as plans_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+    await seed_exercises()
     yield
 
 
@@ -34,6 +38,8 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.include_router(auth_router,        prefix="/api/v1")
 app.include_router(admin_router,       prefix="/api/v1")
 app.include_router(super_admin_router, prefix="/api/v1")
+app.include_router(exercises_router,   prefix="/api/v1")
+app.include_router(plans_router,       prefix="/api/v1")
 
 
 @app.get("/health")

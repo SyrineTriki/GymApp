@@ -314,3 +314,103 @@ class AnalyticsResponse(BaseModel):
     food_category_breakdown: List[FoodCategoryBreakdown]
     total_gyms: int
     total_admins: int
+
+
+# ── Exercise library ──────────────────────────────────────────────────────────
+
+class ExerciseSummary(BaseModel):
+    id: str
+    name: str
+    body_part: str
+    equipment: str
+    target_muscle: str
+    image_filename: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class ExerciseResponse(ExerciseSummary):
+    secondary_muscles: List[str] = []
+    instructions: List[str] = []
+    gif_filename: Optional[str] = None
+
+
+class ExerciseListResponse(BaseModel):
+    items: List[ExerciseSummary]
+    total: int
+    limit: int
+    offset: int
+
+
+class ExerciseFiltersResponse(BaseModel):
+    body_parts: List[str]
+    equipment: List[str]
+
+
+# ── Plans (routine builder) ──────────────────────────────────────────────────
+
+class PlanExerciseInput(BaseModel):
+    exercise_id: str
+    sets: int = 3
+    reps: str = "10"
+    rest_seconds: Optional[int] = None
+    notes: Optional[str] = None
+
+    @field_validator("sets")
+    @classmethod
+    def sets_positive(cls, v):
+        if v < 1: raise ValueError("Sets must be at least 1.")
+        return v
+
+    @field_validator("reps")
+    @classmethod
+    def reps_not_empty(cls, v):
+        v = v.strip()
+        if not v: raise ValueError("Reps is required.")
+        return v
+
+
+class PlanCreateRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    exercises: List[PlanExerciseInput] = []
+
+    @field_validator("name")
+    @classmethod
+    def name_not_empty(cls, v):
+        v = v.strip()
+        if len(v) < 1: raise ValueError("Plan name is required.")
+        return v
+
+
+class PlanUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    exercises: Optional[List[PlanExerciseInput]] = None   # when present, replaces the full exercise list (order preserved)
+
+
+class PlanExerciseResponse(BaseModel):
+    id: str
+    exercise: ExerciseSummary
+    order_index: int
+    sets: int
+    reps: str
+    rest_seconds: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class PlanResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    created_at: str
+    updated_at: str
+    exercises: List[PlanExerciseResponse] = []
+
+
+class PlanSummaryResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    exercise_count: int
+    updated_at: str

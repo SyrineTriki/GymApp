@@ -9,5 +9,5 @@
 // For a real device or iOS simulator, you must use the LAN IP.
 
 export const API_URL = __DEV__
-  ? 'http://172.22.192.1:8000/api/v1'  
+  ? 'http://192.168.0.3:8000/api/v1'
   : 'https://your-production-domain.com/api/v1';

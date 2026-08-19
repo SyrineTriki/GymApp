@@ -5,7 +5,7 @@ from sqlalchemy import (
     Column, String, Boolean, DateTime, Date, Integer,
     Text, Enum as SAEnum, ForeignKey, Numeric
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -129,3 +129,56 @@ class Gym(Base):
 
     # A gym has one or more admins; every admin belongs to exactly one gym.
     admins = relationship("User", back_populates="gym", foreign_keys="User.gym_id")
+
+
+# ── Exercise library ─────────────────────────────────────────────────────────
+# Seeded at startup from data/exercises.json (the free exercise-db dataset also
+# used by openGym). id is that dataset's own string id (e.g. "0001") so re-seeding
+# is an idempotent upsert instead of a fresh set of UUIDs every deploy.
+
+class Exercise(Base):
+    __tablename__ = "exercises"
+
+    id                = Column(String(10), primary_key=True)
+    name              = Column(String(150), nullable=False, index=True)
+    body_part         = Column(String(50), nullable=False, index=True)
+    equipment         = Column(String(50), nullable=False, index=True)
+    target_muscle     = Column(String(50), nullable=False)
+    secondary_muscles = Column(ARRAY(String), nullable=False, default=list)
+    instructions      = Column(ARRAY(Text), nullable=False, default=list)
+    image_filename    = Column(String(120), nullable=True)
+    gif_filename      = Column(String(120), nullable=True)
+
+
+# ── Plans (athlete-built routines) ───────────────────────────────────────────
+
+class WorkoutPlan(Base):
+    __tablename__ = "workout_plans"
+
+    id          = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    athlete_id  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    name        = Column(String(150), nullable=False)
+    description = Column(Text, nullable=True)
+    created_at  = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    exercises = relationship(
+        "PlanExercise", back_populates="plan",
+        cascade="all, delete-orphan", order_by="PlanExercise.order_index",
+    )
+
+
+class PlanExercise(Base):
+    __tablename__ = "plan_exercises"
+
+    id           = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    plan_id      = Column(UUID(as_uuid=True), ForeignKey("workout_plans.id", ondelete="CASCADE"), nullable=False)
+    exercise_id  = Column(String(10), ForeignKey("exercises.id", ondelete="RESTRICT"), nullable=False)
+    order_index  = Column(Integer, nullable=False, default=0)
+    sets         = Column(Integer, nullable=False, default=3)
+    reps         = Column(String(20), nullable=False, default="10")   # free text: "10", "8-12", "AMRAP"
+    rest_seconds = Column(Integer, nullable=True)
+    notes        = Column(Text, nullable=True)
+
+    plan     = relationship("WorkoutPlan", back_populates="exercises")
+    exercise = relationship("Exercise")
