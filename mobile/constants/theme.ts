@@ -17,3 +17,4 @@ export const colors = {
 
 export const radius = { sm: 8, md: 10, lg: 16 };
 export const font   = { sm: 13, base: 15, md: 17, lg: 22, xl: 26 };
+export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 };
