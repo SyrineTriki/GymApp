@@ -6,6 +6,7 @@ import { AuthService } from '../../../services/auth.service';
 import { ClientsService, Link } from '../../../services/clients.service';
 import { WorkoutsService, TodayWorkout } from '../../../services/workouts.service';
 import { AchievementsService } from '../../../services/achievements.service';
+import { PlansService, PlanSummary } from '../../../services/plans.service';
 import { AmbientBackground } from '../../../components/ui/AmbientBackground';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import { StatCard } from '../../../components/ui/StatCard';
@@ -21,18 +22,30 @@ export default function AthleteHome() {
   const [coach, setCoach] = useState<Link | null>(null);
   const [today, setToday] = useState<TodayWorkout | null>(null);
   const [badgeCount, setBadgeCount] = useState(0);
+  const [plans, setPlans] = useState<PlanSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   async function load() {
     try {
-      const [n, c, t, ach] = await Promise.all([
-        AuthService.getName(), ClientsService.myCoach(), WorkoutsService.today(), AchievementsService.list(),
+      const [n, c, t, ach, p] = await Promise.all([
+        AuthService.getName(),
+        ClientsService.myCoach(),
+        WorkoutsService.today(),
+        AchievementsService.list(),
+        PlansService.list().catch(() => []), // don't let a plans failure break the whole dashboard
       ]);
-      setName(n ?? ''); setCoach(c); setToday(t);
+      setName(n ?? '');
+      setCoach(c);
+      setToday(t);
       setBadgeCount(ach.filter(a => a.earned).length);
-    } catch { /* soft-fail */ }
-    finally { setLoading(false); setRefreshing(false); }
+      setPlans(p);
+    } catch (err) {
+      console.warn('[AthleteHome] load failed', err); // surface the real error instead of failing silently
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }
 
   useFocusEffect(useCallback(() => { load(); }, []));
@@ -43,6 +56,11 @@ export default function AthleteHome() {
 
   const doneCount = today?.completed_exercise_names.length ?? 0;
   const totalCount = today?.exercises.length ?? 0;
+
+  // most recently updated plan, if any
+  const latestPlan = plans.length
+    ? [...plans].sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at))[0]
+    : null;
 
   return (
     <View style={styles.shell}>
@@ -94,8 +112,25 @@ export default function AthleteHome() {
           </TouchableOpacity>
         )}
 
+        <Text style={styles.sectionTitle}>Your plans</Text>
+        {!latestPlan ? (
+          <TouchableOpacity onPress={() => router.push('/(athlete)/(tabs)/plan')} activeOpacity={0.85}>
+            <GlassCard>
+              <EmptyState icon="📋" title="No plans yet" body="Build a plan to start tracking your training program." />
+            </GlassCard>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={() => router.push(`/(athlete)/plan/${latestPlan.id}`)} activeOpacity={0.85}>
+            <GlassCard glowColor={colors.violet}>
+              <Text style={styles.programTitle}>{latestPlan.name}</Text>
+              <Text style={styles.programMeta}>{latestPlan.exercise_count} exercises</Text>
+            </GlassCard>
+          </TouchableOpacity>
+        )}
+
         <Text style={styles.sectionTitle}>Quick links</Text>
         <View style={styles.quickGrid}>
+          <QuickLink icon="book-open" label="Library" onPress={() => router.push('/(athlete)/(tabs)/library')} />
           <QuickLink icon="dollar-sign" label="Budget" onPress={() => router.push('/(athlete)/budget')} />
           <QuickLink icon="trending-up" label="Progress" onPress={() => router.push('/(athlete)/progress')} />
           <QuickLink icon="award" label="Achievements" onPress={() => router.push('/(athlete)/achievements')} />

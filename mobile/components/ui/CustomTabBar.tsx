@@ -2,11 +2,9 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import type { BottomTabBarProps } from 'expo-router/js-tabs';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { colors, font, radius } from '../../constants/theme';
 
-// Maps each route name to its icon + label, e.g.
-// { home: { icon: 'home', label: 'Home' }, clients: { icon: 'users', label: 'Clients' } }
 export type TabConfig = Record<string, { icon: keyof typeof Feather.glyphMap; label: string }>;
 
 interface Props extends BottomTabBarProps {
@@ -16,17 +14,14 @@ interface Props extends BottomTabBarProps {
 
 export function CustomTabBar({ state, navigation, accent, config }: Props) {
   const insets = useSafeAreaInsets();
-  const routes = state.routes.filter(r => config[r.name]);
-  // 6+ tabs no longer fit comfortably with a persistent label per tab (esp. on
-  // narrower phones) — past that count only the focused tab shows its label,
-  // the rest fall back to icon-only.
-  const compact = routes.length > 5;
+  const visibleRoutes = state.routes.filter(r => config[r.name]);
+  const compact = visibleRoutes.length > 5;
 
   return (
     <View style={[styles.wrap, { bottom: Math.max(insets.bottom, 12), paddingHorizontal: compact ? 4 : 6 }]}>
-      {state.routes.map((route, index) => {
+      {visibleRoutes.map((route) => {
+        const index = state.routes.indexOf(route);
         const meta = config[route.name];
-        if (!meta) return null;
         const focused = state.index === index;
         const showLabel = !compact || focused;
 

@@ -5,7 +5,6 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import * as LocalAI from '../../../services/localAiCoach';
 import { loadHistory, saveHistory, StoredMessage } from '../../../services/aiCoachHistory';
 import { AmbientBackground } from '../../../components/ui/AmbientBackground';
 import { colors, font, radius, spacing } from '../../../constants/theme';
